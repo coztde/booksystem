@@ -4,9 +4,13 @@ import { useRouter } from 'vue-router'
 import { listCurrentBorrowed, me, renewBook, returnBook, type BorrowedBook, type UserProfile } from '@/api/library'
 import { useAuthStore } from '@/stores/auth'
 import { formatToMinute } from '@/utils/datetime'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const router = useRouter()
 const auth = useAuthStore()
+const toast = useToast()
+const { confirm } = useConfirm()
 
 const profile = ref<UserProfile | null>(null)
 const borrowedList = ref<BorrowedBook[]>([])
@@ -50,21 +54,26 @@ async function doRenew(recordId: number) {
   try {
     await renewBook(recordId)
     await refresh()
-    window.alert('续借成功')
+    toast.success('续借成功')
   } catch (e: any) {
-    window.alert(e?.message || '续借失败')
+    toast.error(e?.message || '续借失败')
   }
 }
 
 async function doReturn(recordId: number) {
-  const ok = window.confirm('确认归还该图书？')
+  const ok = await confirm({
+    title: '确认归还',
+    message: '确认归还该图书？',
+    confirmText: '归还',
+    cancelText: '取消',
+  })
   if (!ok) return
   try {
     await returnBook(recordId)
     await refresh()
-    window.alert('归还成功')
+    toast.success('归还成功')
   } catch (e: any) {
-    window.alert(e?.message || '归还失败')
+    toast.error(e?.message || '归还失败')
   }
 }
 

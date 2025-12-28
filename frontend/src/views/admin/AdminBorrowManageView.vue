@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { adminBorrowOut, adminPageBorrows, adminReturnBorrow, type AdminBorrowRecord } from '@/api/admin'
 import { formatToMinute } from '@/utils/datetime'
+import { useToast } from '@/composables/useToast'
 
 const keyword = ref('')
 const status = ref<number | ''>('')
@@ -15,6 +16,7 @@ const errorMsg = ref('')
 
 const borrowUserCode = ref('')
 const borrowBookId = ref<number | null>(null)
+const toast = useToast()
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
@@ -54,11 +56,11 @@ async function borrowOut() {
   const code = borrowUserCode.value.trim()
   const bookId = Number(borrowBookId.value)
   if (!code) {
-    window.alert('请输入读者学号/工号')
+    toast.info('请输入读者学号/工号')
     return
   }
   if (!bookId) {
-    window.alert('请输入图书ID')
+    toast.info('请输入图书ID')
     return
   }
   try {
@@ -66,9 +68,9 @@ async function borrowOut() {
     borrowUserCode.value = ''
     borrowBookId.value = null
     await load()
-    window.alert('借出成功')
+    toast.success('借出成功')
   } catch (e: any) {
-    window.alert(e?.message || '借出失败')
+    toast.error(e?.message || '借出失败')
   }
 }
 
@@ -78,9 +80,9 @@ async function returnBook(recordId: number) {
   try {
     await adminReturnBorrow(recordId, fine)
     await load()
-    window.alert('已归还')
+    toast.success('已归还')
   } catch (e: any) {
-    window.alert(e?.message || '归还失败')
+    toast.error(e?.message || '归还失败')
   }
 }
 

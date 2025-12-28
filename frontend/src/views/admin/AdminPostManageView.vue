@@ -11,6 +11,8 @@ import {
   type AdminPortalPostListItem,
 } from '@/api/admin'
 import { formatToMinute } from '@/utils/datetime'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,9 +28,13 @@ const total = ref(0)
 const records = ref<AdminPortalPostListItem[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+const toast = useToast()
+const { confirm } = useConfirm()
 
 const editorOpen = ref(false)
 const editorMode = ref<'create' | 'edit'>('create')
+const activeRowId = ref<number | null>(null)
+const detailLoading = ref(false)
 const saving = ref(false)
 const form = ref<AdminPortalPostDetail>({
   id: 0,
@@ -69,12 +75,18 @@ async function load() {
       keyword: keyword.value.trim() || undefined,
       page: page.value,
       pageSize: pageSize.value,
-    })
-    total.value = data.total
-    records.value = data.records
-  } catch (e: any) {
-    errorMsg.value = e?.message || '加载失败'
-    records.value = []
+	    })
+	    total.value = data.total
+	    records.value = data.records
+	    if (editorOpen.value && editorMode.value === 'edit' && activeRowId.value != null) {
+	      const stillExists = records.value.some((it) => it.id === activeRowId.value)
+	      if (!stillExists) {
+	        closeEditor()
+	      }
+	    }
+	  } catch (e: any) {
+	    errorMsg.value = e?.message || '加载失败'
+	    records.value = []
     total.value = 0
   } finally {
     loading.value = false
@@ -84,6 +96,8 @@ async function load() {
 function openCreate() {
   editorMode.value = 'create'
   editorOpen.value = true
+  activeRowId.value = null
+  detailLoading.value = false
   form.value = {
     id: 0,
     type: type.value,
@@ -101,17 +115,36 @@ function openCreate() {
 async function openEdit(id: number) {
   editorMode.value = 'edit'
   editorOpen.value = true
+  activeRowId.value = id
+  detailLoading.value = true
+  form.value = {
+    id,
+    type: type.value,
+    title: '',
+    status: 1,
+    tag: '',
+    subtitle: '',
+    content: '',
+    coverUrl: '',
+    accent: '',
+    sort: 0,
+  }
   try {
     const detail = await adminGetPost(id)
     form.value = { ...detail }
   } catch (e: any) {
     editorOpen.value = false
-    window.alert(e?.message || '加载详情失败')
+    activeRowId.value = null
+    toast.error(e?.message || '加载详情失败')
+  } finally {
+    detailLoading.value = false
   }
 }
 
 function closeEditor() {
   editorOpen.value = false
+  activeRowId.value = null
+  detailLoading.value = false
 }
 
 async function save() {
@@ -131,29 +164,39 @@ async function save() {
   try {
     if (editorMode.value === 'create') {
       await adminCreatePost(payload)
-      window.alert('已新增')
+      toast.success('已新增')
     } else {
       await adminUpdatePost(form.value.id, payload)
-      window.alert('已保存')
+      toast.success('已保存')
     }
     editorOpen.value = false
+    activeRowId.value = null
     await load()
   } catch (e: any) {
-    window.alert(e?.message || '保存失败')
+    toast.error(e?.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
 async function remove(id: number) {
-  const ok = window.confirm('确认删除该内容？')
+  const ok = await confirm({
+    title: '确认删除',
+    message: '确认删除该内容？',
+    confirmText: '删除',
+    cancelText: '取消',
+    variant: 'danger',
+  })
   if (!ok) return
   try {
     await adminDeletePost(id)
+    if (activeRowId.value === id) {
+      closeEditor()
+    }
     await load()
-    window.alert('已删除')
+    toast.success('已删除')
   } catch (e: any) {
-    window.alert(e?.message || '删除失败')
+    toast.error(e?.message || '删除失败')
   }
 }
 
@@ -171,6 +214,7 @@ function next() {
 }
 
 watch(type, () => {
+  closeEditor()
   page.value = 1
   status.value = ''
   keyword.value = ''
@@ -239,6 +283,75 @@ onMounted(() => load())
           <button class="btn sm" type="button" @click="openEdit(it.id)">编辑</button>
           <button class="btn sm danger" type="button" @click="remove(it.id)">删除</button>
         </div>
+
+        <div v-if="editorOpen && editorMode === 'edit' && activeRowId === it.id" class="editor-cell">
+          <div class="editor inline">
+            <div class="editor-head">
+              <div class="h2">编辑内容</div>
+              <button class="btn" type="button" @click="closeEditor">关闭</button>
+            </div>
+
+            <div class="editor-body">
+              <div v-if="detailLoading" class="muted loading-tip">加载中...</div>
+
+              <div class="grid">
+                <div class="field">
+                  <div class="label">类型</div>
+                  <select v-model.number="form.type" class="input select">
+                    <option :value="1">轮播</option>
+                    <option :value="2">新闻</option>
+                    <option :value="3">公告</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <div class="label">状态</div>
+                  <select v-model.number="form.status" class="input select">
+                    <option :value="1">上线</option>
+                    <option :value="0">下线</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <div class="label">排序（越小越靠前）</div>
+                  <input v-model.number="form.sort" class="input" type="number" min="0" />
+                </div>
+                <div class="field">
+                  <div class="label">标签（轮播可用）</div>
+                  <input v-model="form.tag" class="input" placeholder="如：活动/通知" />
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="label">标题</div>
+                <input v-model="form.title" class="input" placeholder="请输入标题" />
+              </div>
+              <div class="field">
+                <div class="label">摘要/副标题</div>
+                <input v-model="form.subtitle" class="input" placeholder="列表摘要/轮播说明（可选）" />
+              </div>
+              <div class="grid">
+                <div class="field">
+                  <div class="label">封面图 URL（可选）</div>
+                  <input v-model="form.coverUrl" class="input" placeholder="https://..." />
+                </div>
+                <div class="field">
+                  <div class="label">强调色（可选）</div>
+                  <input v-model="form.accent" class="input" placeholder="#0B2B5B" />
+                </div>
+              </div>
+              <div class="field">
+                <div class="label">正文</div>
+                <textarea v-model="form.content" class="input textarea" rows="8" placeholder="支持纯文本/HTML" />
+              </div>
+
+              <div class="editor-actions">
+                <button class="btn btn-primary" type="button" :disabled="saving || detailLoading" @click="save">
+                  {{ saving ? '保存中..' : '保存' }}
+                </button>
+                <button class="btn" type="button" @click="closeEditor">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -248,7 +361,7 @@ onMounted(() => load())
       <button class="btn" type="button" :disabled="page >= totalPages" @click="next">下一页</button>
     </div>
 
-    <div v-if="editorOpen" class="editor">
+    <div v-if="editorOpen && editorMode === 'create'" class="editor">
       <div class="editor-head">
         <div class="h2">{{ editorMode === 'create' ? '新增内容' : '编辑内容' }}</div>
         <button class="btn" type="button" @click="closeEditor">关闭</button>
@@ -382,6 +495,19 @@ onMounted(() => load())
 
 .tr:first-child {
   border-top: none;
+}
+
+.editor-cell {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+
+.editor.inline {
+  margin: 12px;
+}
+
+.loading-tip {
+  padding: 8px 0;
 }
 
 .th {
@@ -534,4 +660,3 @@ onMounted(() => load())
   }
 }
 </style>
-

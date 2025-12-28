@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { adminCreateBook, adminDeleteBook, adminGetBook, adminPageBooks, adminUpdateBook, type AdminBook } from '@/api/admin'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const keyword = ref('')
 const category = ref('')
@@ -12,9 +14,13 @@ const total = ref(0)
 const records = ref<AdminBook[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+const toast = useToast()
+const { confirm } = useConfirm()
 
 const editorOpen = ref(false)
 const editorMode = ref<'create' | 'edit'>('create')
+const activeRowId = ref<number | null>(null)
+const detailLoading = ref(false)
 const saving = ref(false)
 const form = ref<Partial<AdminBook>>({
   id: 0,
@@ -54,6 +60,12 @@ async function load() {
     })
     total.value = data.total
     records.value = data.records
+    if (editorOpen.value && editorMode.value === 'edit' && activeRowId.value != null) {
+      const stillExists = records.value.some((it) => it.id === activeRowId.value)
+      if (!stillExists) {
+        closeEditor()
+      }
+    }
   } catch (e: any) {
     errorMsg.value = e?.message || '加载失败'
     records.value = []
@@ -71,6 +83,8 @@ function search() {
 function openCreate() {
   editorMode.value = 'create'
   editorOpen.value = true
+  activeRowId.value = null
+  detailLoading.value = false
   form.value = {
     title: '',
     author: '',
@@ -87,17 +101,36 @@ function openCreate() {
 async function openEdit(id: number) {
   editorMode.value = 'edit'
   editorOpen.value = true
+  activeRowId.value = id
+  detailLoading.value = true
+  form.value = {
+    id,
+    title: '',
+    author: '',
+    publisher: '',
+    isbn: '',
+    category: '',
+    location: '',
+    description: '',
+    totalQty: 0,
+    status: 1,
+  }
   try {
     const detail = await adminGetBook(id)
     form.value = { ...detail }
   } catch (e: any) {
     editorOpen.value = false
-    window.alert(e?.message || '加载详情失败')
+    activeRowId.value = null
+    toast.error(e?.message || '加载详情失败')
+  } finally {
+    detailLoading.value = false
   }
 }
 
 function closeEditor() {
   editorOpen.value = false
+  activeRowId.value = null
+  detailLoading.value = false
 }
 
 async function save() {
@@ -117,29 +150,39 @@ async function save() {
   try {
     if (editorMode.value === 'create') {
       await adminCreateBook(payload)
-      window.alert('已新增')
+      toast.success('已新增')
     } else {
       await adminUpdateBook(Number(form.value.id), payload)
-      window.alert('已保存')
+      toast.success('已保存')
     }
     editorOpen.value = false
+    activeRowId.value = null
     await load()
   } catch (e: any) {
-    window.alert(e?.message || '保存失败')
+    toast.error(e?.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
 async function remove(id: number) {
-  const ok = window.confirm('确认删除该图书？（存在未归还借阅时将失败）')
+  const ok = await confirm({
+    title: '确认删除',
+    message: '确认删除该图书？（存在未归还借阅时将失败）',
+    confirmText: '删除',
+    cancelText: '取消',
+    variant: 'danger',
+  })
   if (!ok) return
   try {
     await adminDeleteBook(id)
+    if (activeRowId.value === id) {
+      closeEditor()
+    }
     await load()
-    window.alert('已删除')
+    toast.success('已删除')
   } catch (e: any) {
-    window.alert(e?.message || '删除失败')
+    toast.error(e?.message || '删除失败')
   }
 }
 
@@ -214,6 +257,73 @@ onMounted(() => load())
           <button class="btn sm" type="button" @click="openEdit(it.id)">编辑</button>
           <button class="btn sm danger" type="button" @click="remove(it.id)">删除</button>
         </div>
+
+        <div v-if="editorOpen && editorMode === 'edit' && activeRowId === it.id" class="editor-cell">
+          <div class="editor inline">
+            <div class="editor-head">
+              <div class="h2">编辑图书</div>
+              <button class="btn" type="button" @click="closeEditor">关闭</button>
+            </div>
+
+            <div class="editor-body">
+              <div v-if="detailLoading" class="muted loading-tip">加载中...</div>
+
+              <div class="grid">
+                <div class="field">
+                  <div class="label">状态</div>
+                  <select v-model.number="form.status" class="input select">
+                    <option :value="1">可借</option>
+                    <option :value="0">停用</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <div class="label">总库存</div>
+                  <input v-model.number="form.totalQty" class="input" type="number" min="0" />
+                </div>
+                <div class="field">
+                  <div class="label">分类</div>
+                  <input v-model="form.category" class="input" placeholder="如：计算机/文学" />
+                </div>
+                <div class="field">
+                  <div class="label">馆藏位置</div>
+                  <input v-model="form.location" class="input" placeholder="如：主馆A区-TP3" />
+                </div>
+              </div>
+
+              <div class="grid">
+                <div class="field">
+                  <div class="label">书名</div>
+                  <input v-model="form.title" class="input" placeholder="请输入书名" />
+                </div>
+                <div class="field">
+                  <div class="label">作者</div>
+                  <input v-model="form.author" class="input" placeholder="可选" />
+                </div>
+              </div>
+              <div class="grid">
+                <div class="field">
+                  <div class="label">出版社</div>
+                  <input v-model="form.publisher" class="input" placeholder="可选" />
+                </div>
+                <div class="field">
+                  <div class="label">ISBN</div>
+                  <input v-model="form.isbn" class="input" placeholder="可选" />
+                </div>
+              </div>
+              <div class="field">
+                <div class="label">简介</div>
+                <textarea v-model="form.description" class="input textarea" rows="6" placeholder="可选" />
+              </div>
+
+              <div class="editor-actions">
+                <button class="btn btn-primary" type="button" :disabled="saving || detailLoading" @click="save">
+                  {{ saving ? '保存中..' : '保存' }}
+                </button>
+                <button class="btn" type="button" @click="closeEditor">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -223,7 +333,7 @@ onMounted(() => load())
       <button class="btn" type="button" :disabled="page >= totalPages" @click="next">下一页</button>
     </div>
 
-    <div v-if="editorOpen" class="editor">
+    <div v-if="editorOpen && editorMode === 'create'" class="editor">
       <div class="editor-head">
         <div class="h2">{{ editorMode === 'create' ? '新增图书' : '编辑图书' }}</div>
         <button class="btn" type="button" @click="closeEditor">关闭</button>
@@ -343,6 +453,19 @@ onMounted(() => load())
 
 .tr:first-child {
   border-top: none;
+}
+
+.editor-cell {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+
+.editor.inline {
+  margin: 12px;
+}
+
+.loading-tip {
+  padding: 8px 0;
 }
 
 .th {
@@ -485,4 +608,3 @@ onMounted(() => load())
   }
 }
 </style>
-

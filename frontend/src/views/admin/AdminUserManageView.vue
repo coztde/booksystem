@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { adminPageReaders, adminResetReaderPassword, adminUpdateReaderStatus, type AdminReader } from '@/api/admin'
 import { formatToMinute } from '@/utils/datetime'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const keyword = ref('')
 const status = ref<number | ''>('')
@@ -12,6 +14,8 @@ const total = ref(0)
 const records = ref<AdminReader[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+const toast = useToast()
+const { confirm } = useConfirm()
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
@@ -47,25 +51,37 @@ function search() {
 
 async function toggleStatus(it: AdminReader) {
   const next = it.status === 1 ? 0 : 1
-  const ok = window.confirm(`确认将该用户设置为“${statusLabel(next)}”？`)
+  const ok = await confirm({
+    title: next === 0 ? '确认禁用' : '确认启用',
+    message: `确认将该用户设置为“${statusLabel(next)}”？`,
+    confirmText: statusLabel(next),
+    cancelText: '取消',
+    variant: next === 0 ? 'danger' : 'default',
+  })
   if (!ok) return
   try {
     await adminUpdateReaderStatus(it.id, next)
     await load()
-    window.alert('已更新')
+    toast.success('已更新')
   } catch (e: any) {
-    window.alert(e?.message || '更新失败')
+    toast.error(e?.message || '更新失败')
   }
 }
 
 async function resetPassword(it: AdminReader) {
-  const ok = window.confirm('确认重置该读者密码为：111111aA ？')
+  const ok = await confirm({
+    title: '确认重置密码',
+    message: '确认重置该读者密码为：111111aA ？',
+    confirmText: '重置',
+    cancelText: '取消',
+    variant: 'danger',
+  })
   if (!ok) return
   try {
     await adminResetReaderPassword(it.id)
-    window.alert('已重置（新密码：111111aA）')
+    toast.success('已重置（新密码：111111aA）')
   } catch (e: any) {
-    window.alert(e?.message || '重置失败')
+    toast.error(e?.message || '重置失败')
   }
 }
 

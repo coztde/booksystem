@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { borrowBook, getBook, type Book } from '@/api/library'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const toast = useToast()
 
 const id = computed(() => Number(route.params.id))
 
@@ -40,9 +42,9 @@ async function doBorrow() {
   try {
     await borrowBook(book.value.id)
     await load()
-    window.alert('借阅成功')
+    toast.success('借阅成功')
   } catch (e: any) {
-    window.alert(e?.message || '借阅失败')
+    toast.error(e?.message || '借阅失败')
   }
 }
 

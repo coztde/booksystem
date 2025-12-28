@@ -4,10 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import BookCard from '@/components/BookCard.vue'
 import { borrowBook, listBooks, listCategories, type Book } from '@/api/library'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const toast = useToast()
 
 const keyword = ref<string>((route.query.q as string) || '')
 const activeCategory = ref<string>((route.query.category as string) || '')
@@ -68,9 +70,9 @@ async function handleBorrow(id: number) {
   try {
     await borrowBook(id)
     await loadBooks()
-    window.alert('借阅成功')
+    toast.success('借阅成功')
   } catch (e: any) {
-    window.alert(e?.message || '借阅失败')
+    toast.error(e?.message || '借阅失败')
   }
 }
 
