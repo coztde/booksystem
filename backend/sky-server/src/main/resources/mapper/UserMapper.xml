@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.UserMapper">
+
+    <select id="getReaderByCode" parameterType="string" resultType="com.sky.entity.User">
+        SELECT
+            `id`,
+            `role`,
+            `username`,
+            `phone`,
+            `password_hash` AS `passwordHash`,
+            `name`,
+            `code`,
+            `reader_type_id` AS `readerTypeId`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `user`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `role` = 2
+          AND `code` = #{code}
+        LIMIT 1
+    </select>
+
+    <select id="getById" parameterType="long" resultType="com.sky.entity.User">
+        SELECT
+            `id`,
+            `role`,
+            `username`,
+            `phone`,
+            `password_hash` AS `passwordHash`,
+            `name`,
+            `code`,
+            `reader_type_id` AS `readerTypeId`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `user`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `id` = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="getByCode" parameterType="string" resultType="com.sky.entity.User">
+        SELECT
+            `id`,
+            `role`,
+            `username`,
+            `phone`,
+            `password_hash` AS `passwordHash`,
+            `name`,
+            `code`,
+            `reader_type_id` AS `readerTypeId`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `user`
+        WHERE `is_deleted` = 0
+          AND `code` = #{code}
+        LIMIT 1
+    </select>
+
+    <select id="getByPhone" parameterType="string" resultType="com.sky.entity.User">
+        SELECT
+            `id`,
+            `role`,
+            `username`,
+            `phone`,
+            `password_hash` AS `passwordHash`,
+            `name`,
+            `code`,
+            `reader_type_id` AS `readerTypeId`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `user`
+        WHERE `is_deleted` = 0
+          AND `phone` = #{phone}
+        LIMIT 1
+    </select>
+
+    <insert id="insertReader" parameterType="com.sky.entity.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `user` (
+            `role`, `username`, `phone`, `password_hash`, `name`, `code`, `reader_type_id`, `status`
+        )
+        VALUES (
+            2,
+            NULL,
+            #{phone},
+            #{passwordHash},
+            #{name},
+            #{code},
+            #{readerTypeId},
+            1
+        )
+    </insert>
+
+</mapper>

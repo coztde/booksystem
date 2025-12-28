@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.BookMapper">
+
+    <select id="listBooks" resultType="com.sky.entity.Book">
+        SELECT
+            `id`,
+            `title`,
+            `author`,
+            `publisher`,
+            `isbn`,
+            `category`,
+            `location`,
+            `description`,
+            `total_qty` AS `totalQty`,
+            `available_qty` AS `availableQty`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `book`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+        <if test="category != null and category != ''">
+            AND `category` = #{category}
+        </if>
+        <if test="q != null and q != ''">
+            AND (
+                `title` LIKE CONCAT('%', #{q}, '%')
+                OR `author` LIKE CONCAT('%', #{q}, '%')
+                OR `publisher` LIKE CONCAT('%', #{q}, '%')
+                OR `isbn` LIKE CONCAT('%', #{q}, '%')
+            )
+        </if>
+        ORDER BY `update_time` DESC, `id` DESC
+        LIMIT 60
+    </select>
+
+    <select id="listCategories" resultType="string">
+        SELECT DISTINCT `category`
+        FROM `book`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `category` IS NOT NULL
+          AND `category` != ''
+        ORDER BY `category` ASC
+    </select>
+
+    <select id="getById" parameterType="long" resultType="com.sky.entity.Book">
+        SELECT
+            `id`,
+            `title`,
+            `author`,
+            `publisher`,
+            `isbn`,
+            `category`,
+            `location`,
+            `description`,
+            `total_qty` AS `totalQty`,
+            `available_qty` AS `availableQty`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `book`
+        WHERE `is_deleted` = 0
+          AND `id` = #{id}
+        LIMIT 1
+    </select>
+
+    <update id="decrementAvailableQty">
+        UPDATE `book`
+        SET `available_qty` = `available_qty` - 1
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `id` = #{id}
+          AND `available_qty` &gt; 0
+    </update>
+
+    <update id="incrementAvailableQty">
+        UPDATE `book`
+        SET `available_qty` = `available_qty` + 1
+        WHERE `is_deleted` = 0
+          AND `id` = #{id}
+    </update>
+
+</mapper>

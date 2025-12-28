@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.BorrowRecordMapper">
+
+    <select id="listBorrowedByUserId" resultType="com.sky.vo.BorrowedBookVO">
+        SELECT
+            br.`id` AS `recordId`,
+            br.`book_id` AS `bookId`,
+            b.`title`,
+            b.`author`,
+            b.`publisher`,
+            b.`location`,
+            br.`borrow_at` AS `borrowAt`,
+            br.`due_at` AS `dueAt`,
+            br.`renew_count` AS `renewCount`,
+            CASE
+                WHEN br.`return_at` IS NULL AND br.`due_at` &lt; NOW() THEN 2
+                WHEN br.`return_at` IS NULL THEN 0
+                ELSE 1
+            END AS `status`
+        FROM `borrow_record` br
+        INNER JOIN `book` b ON b.`id` = br.`book_id`
+        WHERE br.`is_deleted` = 0
+          AND b.`is_deleted` = 0
+          AND br.`user_id` = #{userId}
+          AND br.`return_at` IS NULL
+        ORDER BY br.`borrow_at` DESC
+        LIMIT 30
+    </select>
+
+    <select id="countActiveByUserId" parameterType="long" resultType="long">
+        SELECT COUNT(*)
+        FROM `borrow_record`
+        WHERE `is_deleted` = 0
+          AND `user_id` = #{userId}
+          AND `return_at` IS NULL
+    </select>
+
+    <insert id="insertBorrowRecord">
+        INSERT INTO `borrow_record` (
+            `user_id`, `book_id`, `borrow_at`, `due_at`, `return_at`,
+            `renew_count`, `status`, `fine_amount`, `handled_by`
+        )
+        VALUES (
+            #{userId},
+            #{bookId},
+            NOW(),
+            DATE_ADD(NOW(), INTERVAL #{borrowDays} DAY),
+            NULL,
+            0,
+            0,
+            NULL,
+            NULL
+        )
+    </insert>
+
+    <select id="getBookIdByRecordId" resultType="long">
+        SELECT `book_id`
+        FROM `borrow_record`
+        WHERE `is_deleted` = 0
+          AND `id` = #{recordId}
+          AND `user_id` = #{userId}
+        LIMIT 1
+    </select>
+
+    <update id="returnBook">
+        UPDATE `borrow_record`
+        SET `return_at` = NOW(),
+            `status` = 1
+        WHERE `is_deleted` = 0
+          AND `id` = #{recordId}
+          AND `user_id` = #{userId}
+          AND `return_at` IS NULL
+    </update>
+
+    <update id="renew">
+        UPDATE `borrow_record`
+        SET `renew_count` = `renew_count` + 1,
+            `due_at` = DATE_ADD(`due_at`, INTERVAL #{borrowDays} DAY),
+            `status` = 0
+        WHERE `is_deleted` = 0
+          AND `id` = #{recordId}
+          AND `user_id` = #{userId}
+          AND `return_at` IS NULL
+          AND `renew_count` &lt; #{maxRenew}
+          AND `due_at` &gt;= NOW()
+    </update>
+
+</mapper>

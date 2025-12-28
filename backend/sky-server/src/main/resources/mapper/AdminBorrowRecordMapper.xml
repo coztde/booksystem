@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.admin.AdminBorrowRecordMapper">
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM `borrow_record` br
+        INNER JOIN `user` u ON u.`id` = br.`user_id`
+        INNER JOIN `book` b ON b.`id` = br.`book_id`
+        WHERE br.`is_deleted` = 0
+          AND u.`is_deleted` = 0
+          AND b.`is_deleted` = 0
+        <if test="status != null">
+            <choose>
+                <when test="status == 0">
+                    AND br.`return_at` IS NULL AND br.`due_at` &gt;= NOW()
+                </when>
+                <when test="status == 1">
+                    AND br.`return_at` IS NOT NULL
+                </when>
+                <when test="status == 2">
+                    AND br.`return_at` IS NULL AND br.`due_at` &lt; NOW()
+                </when>
+            </choose>
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                u.`name` LIKE CONCAT('%', #{keyword}, '%')
+                OR u.`code` LIKE CONCAT('%', #{keyword}, '%')
+                OR b.`title` LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <select id="list" resultType="com.sky.vo.AdminBorrowRecordVO">
+        SELECT
+            br.`id` AS `recordId`,
+            br.`user_id` AS `userId`,
+            u.`name` AS `userName`,
+            u.`code` AS `userCode`,
+            br.`book_id` AS `bookId`,
+            b.`title` AS `bookTitle`,
+            br.`borrow_at` AS `borrowAt`,
+            br.`due_at` AS `dueAt`,
+            br.`return_at` AS `returnAt`,
+            br.`renew_count` AS `renewCount`,
+            CASE
+                WHEN br.`return_at` IS NULL AND br.`due_at` &lt; NOW() THEN 2
+                WHEN br.`return_at` IS NULL THEN 0
+                ELSE 1
+            END AS `status`,
+            br.`fine_amount` AS `fineAmount`,
+            br.`handled_by` AS `handledBy`,
+            hu.`name` AS `handledByName`
+        FROM `borrow_record` br
+        INNER JOIN `user` u ON u.`id` = br.`user_id`
+        INNER JOIN `book` b ON b.`id` = br.`book_id`
+        LEFT JOIN `user` hu ON hu.`id` = br.`handled_by`
+        WHERE br.`is_deleted` = 0
+          AND u.`is_deleted` = 0
+          AND b.`is_deleted` = 0
+        <if test="status != null">
+            <choose>
+                <when test="status == 0">
+                    AND br.`return_at` IS NULL AND br.`due_at` &gt;= NOW()
+                </when>
+                <when test="status == 1">
+                    AND br.`return_at` IS NOT NULL
+                </when>
+                <when test="status == 2">
+                    AND br.`return_at` IS NULL AND br.`due_at` &lt; NOW()
+                </when>
+            </choose>
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                u.`name` LIKE CONCAT('%', #{keyword}, '%')
+                OR u.`code` LIKE CONCAT('%', #{keyword}, '%')
+                OR b.`title` LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY br.`borrow_at` DESC, br.`id` DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="countActiveByBookId" resultType="long">
+        SELECT COUNT(*)
+        FROM `borrow_record`
+        WHERE `is_deleted` = 0
+          AND `book_id` = #{bookId}
+          AND `return_at` IS NULL
+    </select>
+
+    <insert id="insertBorrowRecord">
+        INSERT INTO `borrow_record` (
+            `user_id`, `book_id`, `borrow_at`, `due_at`, `return_at`,
+            `renew_count`, `status`, `fine_amount`, `handled_by`
+        )
+        VALUES (
+            #{userId},
+            #{bookId},
+            NOW(),
+            DATE_ADD(NOW(), INTERVAL #{borrowDays} DAY),
+            NULL,
+            0,
+            0,
+            NULL,
+            #{handledBy}
+        )
+    </insert>
+
+    <select id="getBookIdByRecordId" resultType="long">
+        SELECT `book_id`
+        FROM `borrow_record`
+        WHERE `is_deleted` = 0
+          AND `id` = #{recordId}
+        LIMIT 1
+    </select>
+
+    <update id="returnBook">
+        UPDATE `borrow_record`
+        SET `return_at` = NOW(),
+            `status` = 1,
+            `fine_amount` = #{fineAmount},
+            `handled_by` = #{handledBy}
+        WHERE `is_deleted` = 0
+          AND `id` = #{recordId}
+          AND `return_at` IS NULL
+    </update>
+
+</mapper>
+

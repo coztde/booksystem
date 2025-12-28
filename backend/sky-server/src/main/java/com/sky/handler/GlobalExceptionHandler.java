@@ -1,6 +1,7 @@
 package com.sky.handler;
 
 import com.sky.exception.BaseException;
+import com.sky.constant.MessageConstant;
 import com.sky.result.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -22,6 +23,15 @@ public class GlobalExceptionHandler {
     public Result exceptionHandler(BaseException ex){
         log.error("异常信息：{}", ex.getMessage());
         return Result.error(ex.getMessage());
+    }
+
+    /**
+     * 捕获未知异常
+     */
+    @ExceptionHandler
+    public Result exceptionHandler(Exception ex) {
+        log.error("未知异常", ex);
+        return Result.error(MessageConstant.UNKNOWN_ERROR);
     }
 
 }

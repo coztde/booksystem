@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.PortalPostMapper">
+
+    <select id="listCarousel" resultType="com.sky.vo.CarouselItemVO">
+        SELECT
+            `id`,
+            `tag`,
+            `title`,
+            `subtitle`,
+            `cover_url` AS `coverUrl`,
+            `accent`
+        FROM `portal_post`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `type` = 1
+        ORDER BY `sort` ASC, `publish_time` DESC, `id` DESC
+        LIMIT 10
+    </select>
+
+    <select id="listPosts" resultType="com.sky.vo.PortalPostListItemVO">
+        SELECT
+            `id`,
+            `type`,
+            `title`,
+            `subtitle`,
+            `publish_time` AS `publishTime`
+        FROM `portal_post`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+        <if test="type != null">
+            AND `type` = #{type}
+        </if>
+        ORDER BY `publish_time` DESC, `sort` ASC, `id` DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="getDetailById" parameterType="long" resultType="com.sky.vo.PortalPostDetailVO">
+        SELECT
+            `id`,
+            `type`,
+            `title`,
+            `content`,
+            `cover_url` AS `coverUrl`,
+            `publish_time` AS `publishTime`
+        FROM `portal_post`
+        WHERE `is_deleted` = 0
+          AND `status` = 1
+          AND `id` = #{id}
+        LIMIT 1
+    </select>
+
+</mapper>
+

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sky.mapper.admin.AdminPortalPostMapper">
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM `portal_post` p
+        WHERE p.`is_deleted` = 0
+        <if test="type != null">
+            AND p.`type` = #{type}
+        </if>
+        <if test="status != null">
+            AND p.`status` = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                p.`title` LIKE CONCAT('%', #{keyword}, '%')
+                OR p.`subtitle` LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <select id="list" resultType="com.sky.vo.AdminPortalPostListItemVO">
+        SELECT
+            p.`id`,
+            p.`type`,
+            p.`tag`,
+            p.`title`,
+            p.`subtitle`,
+            p.`cover_url` AS `coverUrl`,
+            p.`accent`,
+            p.`sort`,
+            p.`publish_time` AS `publishTime`,
+            p.`status`
+        FROM `portal_post` p
+        WHERE p.`is_deleted` = 0
+        <if test="type != null">
+            AND p.`type` = #{type}
+        </if>
+        <if test="status != null">
+            AND p.`status` = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                p.`title` LIKE CONCAT('%', #{keyword}, '%')
+                OR p.`subtitle` LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY p.`publish_time` DESC, p.`sort` ASC, p.`id` DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getById" resultType="com.sky.entity.PortalPost">
+        SELECT
+            `id`,
+            `type`,
+            `tag`,
+            `title`,
+            `subtitle`,
+            `content`,
+            `cover_url` AS `coverUrl`,
+            `accent`,
+            `sort`,
+            `publish_time` AS `publishTime`,
+            `status`,
+            `create_time` AS `createTime`,
+            `update_time` AS `updateTime`,
+            `create_user` AS `createUser`,
+            `update_user` AS `updateUser`,
+            `is_deleted` AS `isDeleted`
+        FROM `portal_post`
+        WHERE `is_deleted` = 0
+          AND `id` = #{id}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.sky.entity.PortalPost" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `portal_post` (
+            `type`, `tag`, `title`, `subtitle`, `content`, `cover_url`, `accent`,
+            `sort`, `publish_time`, `status`,
+            `create_user`, `update_user`, `is_deleted`
+        )
+        VALUES (
+            #{type},
+            #{tag},
+            #{title},
+            #{subtitle},
+            #{content},
+            #{coverUrl},
+            #{accent},
+            #{sort},
+            IFNULL(#{publishTime}, NOW()),
+            #{status},
+            #{createUser},
+            #{updateUser},
+            0
+        )
+    </insert>
+
+    <update id="update" parameterType="com.sky.entity.PortalPost">
+        UPDATE `portal_post`
+        SET `type` = #{type},
+            `tag` = #{tag},
+            `title` = #{title},
+            `subtitle` = #{subtitle},
+            `content` = #{content},
+            `cover_url` = #{coverUrl},
+            `accent` = #{accent},
+            `sort` = #{sort},
+            `publish_time` = IFNULL(#{publishTime}, `publish_time`),
+            `status` = #{status},
+            `update_user` = #{updateUser}
+        WHERE `is_deleted` = 0
+          AND `id` = #{id}
+    </update>
+
+    <update id="softDelete">
+        UPDATE `portal_post`
+        SET `is_deleted` = 1,
+            `update_user` = #{updateUser}
+        WHERE `is_deleted` = 0
+          AND `id` = #{id}
+    </update>
+
+</mapper>
+
