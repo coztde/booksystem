@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS `user` (
 -- 图书
 CREATE TABLE IF NOT EXISTS `book` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `cover_url` varchar(255) DEFAULT NULL COMMENT '封面图URL（可选）',
   `title` varchar(200) NOT NULL COMMENT '书名',
   `author` varchar(100) DEFAULT NULL COMMENT '作者',
   `publisher` varchar(100) DEFAULT NULL COMMENT '出版社',

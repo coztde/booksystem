@@ -23,6 +23,23 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- 兼容修复：如果你的 `book` 表是旧版本（缺少 cover_url 字段），先自动补齐字段
+SET @has_book_cover := (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'book'
+    AND COLUMN_NAME = 'cover_url'
+);
+SET @sql := IF(
+  @has_book_cover = 0,
+  'ALTER TABLE `book` ADD COLUMN `cover_url` varchar(255) DEFAULT NULL COMMENT ''封面图URL（可选）'' AFTER `id`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SET @has_idx_category := (
   SELECT COUNT(*)
   FROM INFORMATION_SCHEMA.STATISTICS
@@ -100,20 +117,21 @@ ON DUPLICATE KEY UPDATE
   `status` = VALUES(`status`);
 
 -- 图书（分类用于馆藏资源页筛选）
-INSERT INTO `book` (`id`, `title`, `author`, `publisher`, `isbn`, `category`, `location`, `description`, `total_qty`, `available_qty`, `status`)
+INSERT INTO `book` (`id`, `cover_url`, `title`, `author`, `publisher`, `isbn`, `category`, `location`, `description`, `total_qty`, `available_qty`, `status`)
 VALUES
-  (1, '计算机网络（第8版）', '谢希仁', '电子工业出版社', '9787121400000', '计算机', '主馆A区-TP3', '经典教材，适合课程学习与复习。', 8, 6, 1),
-  (2, '算法导论（原书第3版）', 'Thomas H. Cormen', '机械工业出版社', '9787111407010', '计算机', '主馆A区-TP3', '算法与数据结构权威参考。', 5, 3, 1),
-  (3, 'Java核心技术（卷I）', 'Cay S. Horstmann', '机械工业出版社', '9787110000001', '计算机', '主馆A区-TP3', 'Java语言与工程实践入门。', 6, 5, 1),
-  (4, '平凡的世界', '路遥', '人民文学出版社', '9787020049295', '文学', '主馆B区-I2', '现实主义长篇小说。', 10, 10, 1),
-  (5, '活着', '余华', '作家出版社', '9787506365437', '文学', '主馆B区-I2', '当代文学经典。', 9, 9, 1),
-  (6, '史记', '司马迁', '中华书局', '9787101000000', '历史', '主馆C区-K2', '中国史学经典。', 6, 6, 1),
-  (7, '万历十五年', '黄仁宇', '中华书局', '9787101000007', '历史', '主馆C区-K2', '以一年的切面观察制度与社会。', 7, 6, 1),
-  (8, '经济学原理', 'N. Gregory Mankiw', '北京大学出版社', '9787301000000', '经济', '主馆D区-F0', '经济学入门教材。', 7, 7, 1),
-  (9, '国富论', '亚当·斯密', '商务印书馆', '9787100000009', '经济', '主馆D区-F0', '古典经济学奠基之作。', 4, 4, 1),
-  (10, '西方哲学史', '罗素', '商务印书馆', '9787100000000', '哲学', '主馆E区-B5', '哲学史导读。', 4, 4, 1),
-  (11, '理想国', '柏拉图', '商务印书馆', '9787100000011', '哲学', '主馆E区-B5', '政治哲学经典。', 5, 5, 1)
+  (1, 'https://picsum.photos/seed/9787121400000/240/320', '计算机网络（第8版）', '谢希仁', '电子工业出版社', '9787121400000', '计算机', '主馆A区-TP3', '经典教材，适合课程学习与复习。', 8, 6, 1),
+  (2, 'https://picsum.photos/seed/9787111407010/240/320', '算法导论（原书第3版）', 'Thomas H. Cormen', '机械工业出版社', '9787111407010', '计算机', '主馆A区-TP3', '算法与数据结构权威参考。', 5, 3, 1),
+  (3, 'https://picsum.photos/seed/9787110000001/240/320', 'Java核心技术（卷I）', 'Cay S. Horstmann', '机械工业出版社', '9787110000001', '计算机', '主馆A区-TP3', 'Java语言与工程实践入门。', 6, 5, 1),
+  (4, 'https://picsum.photos/seed/9787020049295/240/320', '平凡的世界', '路遥', '人民文学出版社', '9787020049295', '文学', '主馆B区-I2', '现实主义长篇小说。', 10, 10, 1),
+  (5, 'https://picsum.photos/seed/9787506365437/240/320', '活着', '余华', '作家出版社', '9787506365437', '文学', '主馆B区-I2', '当代文学经典。', 9, 9, 1),
+  (6, 'https://picsum.photos/seed/9787101000000/240/320', '史记', '司马迁', '中华书局', '9787101000000', '历史', '主馆C区-K2', '中国史学经典。', 6, 6, 1),
+  (7, 'https://picsum.photos/seed/9787101000007/240/320', '万历十五年', '黄仁宇', '中华书局', '9787101000007', '历史', '主馆C区-K2', '以一年的切面观察制度与社会。', 7, 6, 1),
+  (8, 'https://picsum.photos/seed/9787301000000/240/320', '经济学原理', 'N. Gregory Mankiw', '北京大学出版社', '9787301000000', '经济', '主馆D区-F0', '经济学入门教材。', 7, 7, 1),
+  (9, 'https://picsum.photos/seed/9787100000009/240/320', '国富论', '亚当·斯密', '商务印书馆', '9787100000009', '经济', '主馆D区-F0', '古典经济学奠基之作。', 4, 4, 1),
+  (10, 'https://picsum.photos/seed/9787100000000/240/320', '西方哲学史', '罗素', '商务印书馆', '9787100000000', '哲学', '主馆E区-B5', '哲学史导读。', 4, 4, 1),
+  (11, 'https://picsum.photos/seed/9787100000011/240/320', '理想国', '柏拉图', '商务印书馆', '9787100000011', '哲学', '主馆E区-B5', '政治哲学经典。', 5, 5, 1)
 ON DUPLICATE KEY UPDATE
+  `cover_url` = VALUES(`cover_url`),
   `title` = VALUES(`title`),
   `author` = VALUES(`author`),
   `publisher` = VALUES(`publisher`),

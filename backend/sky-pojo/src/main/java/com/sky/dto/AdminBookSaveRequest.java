@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class AdminBookSaveRequest {
+    private String coverUrl;
     private String title;
     private String author;
     private String publisher;
@@ -14,4 +15,3 @@ public class AdminBookSaveRequest {
     private Integer totalQty;
     private Integer status;
 }
-

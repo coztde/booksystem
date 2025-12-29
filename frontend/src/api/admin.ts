@@ -1,4 +1,4 @@
-import { requestJson } from './http'
+import { requestForm, requestJson } from './http'
 
 export type PageResult<T> = {
   total: number
@@ -41,6 +41,7 @@ export type AdminPortalPostDetail = {
 
 export type AdminBook = {
   id: number
+  coverUrl?: string
   title: string
   author?: string
   publisher?: string
@@ -174,6 +175,18 @@ export async function adminDeleteBook(id: number) {
   return requestJson<void>(`/admin/books/${id}`, withAdminToken({ method: 'DELETE' }))
 }
 
+export async function adminUploadBookCover(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return requestForm<string>(
+    '/admin/upload/book-cover',
+    withAdminToken({
+      method: 'POST',
+      body,
+    }),
+  )
+}
+
 export async function adminPageBorrows(params: { status?: number; keyword?: string; page?: number; pageSize?: number }) {
   const search = new URLSearchParams()
   if (params.status != null) search.set('status', String(params.status))
@@ -225,4 +238,3 @@ export async function adminUpdateReaderStatus(id: number, status: number) {
     }),
   )
 }
-

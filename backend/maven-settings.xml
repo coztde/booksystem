@@ -1,46 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
-  <!--
-    说明：
-    - 用于绕过本机 settings.xml 中指向 localhost:8081 的镜像配置（Nexus 未启动会导致依赖解析失败）
-    - 使用方式：mvn -s backend/maven-settings.xml -f backend/pom.xml package
-  -->
-  <profiles>
-    <profile>
-      <id>central</id>
-      <repositories>
-        <repository>
-          <id>central</id>
-          <name>Maven Central</name>
-          <url>https://repo.maven.apache.org/maven2</url>
-          <releases>
-            <enabled>true</enabled>
-          </releases>
-          <snapshots>
-            <enabled>true</enabled>
-          </snapshots>
-        </repository>
-      </repositories>
-      <pluginRepositories>
-        <pluginRepository>
-          <id>central</id>
-          <name>Maven Central</name>
-          <url>https://repo.maven.apache.org/maven2</url>
-          <releases>
-            <enabled>true</enabled>
-          </releases>
-          <snapshots>
-            <enabled>true</enabled>
-          </snapshots>
-        </pluginRepository>
-      </pluginRepositories>
-    </profile>
-  </profiles>
-
-  <activeProfiles>
-    <activeProfile>central</activeProfile>
-  </activeProfiles>
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <!-- 用于在本地无 Nexus(localhost:8081) 的环境下构建，直接使用 Maven Central -->
+    <mirrors>
+        <mirror>
+            <id>central</id>
+            <mirrorOf>central</mirrorOf>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2/</url>
+        </mirror>
+    </mirrors>
 </settings>
 

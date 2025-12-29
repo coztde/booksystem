@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class Book {
     private Long id;
+    private String coverUrl;
     private String title;
     private String author;
     private String publisher;
@@ -23,4 +24,3 @@ public class Book {
     private Long updateUser;
     private Integer isDeleted;
 }
-

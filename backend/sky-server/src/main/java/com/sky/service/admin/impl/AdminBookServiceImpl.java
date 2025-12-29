@@ -62,6 +62,7 @@ public class AdminBookServiceImpl implements AdminBookService {
 
         Long adminId = AdminContext.getCurrentId();
         Book book = new Book();
+        book.setCoverUrl(trimOrNull(request.getCoverUrl()));
         book.setTitle(title);
         book.setAuthor(trimOrNull(request.getAuthor()));
         book.setPublisher(trimOrNull(request.getPublisher()));
@@ -108,6 +109,7 @@ public class AdminBookServiceImpl implements AdminBookService {
         Long adminId = AdminContext.getCurrentId();
         Book book = new Book();
         book.setId(id);
+        book.setCoverUrl(request.getCoverUrl() == null ? existing.getCoverUrl() : trimOrNull(request.getCoverUrl()));
         book.setTitle(request.getTitle() == null ? existing.getTitle() : request.getTitle().trim());
         book.setAuthor(request.getAuthor() == null ? existing.getAuthor() : trimOrNull(request.getAuthor()));
         book.setPublisher(request.getPublisher() == null ? existing.getPublisher() : trimOrNull(request.getPublisher()));

@@ -25,6 +25,7 @@
     <select id="list" resultType="com.sky.entity.Book">
         SELECT
             b.`id`,
+            b.`cover_url` AS `coverUrl`,
             b.`title`,
             b.`author`,
             b.`publisher`,
@@ -63,6 +64,7 @@
     <select id="getById" resultType="com.sky.entity.Book">
         SELECT
             `id`,
+            `cover_url` AS `coverUrl`,
             `title`,
             `author`,
             `publisher`,
@@ -86,11 +88,12 @@
 
     <insert id="insert" parameterType="com.sky.entity.Book" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO `book` (
-            `title`, `author`, `publisher`, `isbn`, `category`, `location`, `description`,
+            `cover_url`, `title`, `author`, `publisher`, `isbn`, `category`, `location`, `description`,
             `total_qty`, `available_qty`, `status`,
             `create_user`, `update_user`, `is_deleted`
         )
         VALUES (
+            #{coverUrl},
             #{title},
             #{author},
             #{publisher},
@@ -109,7 +112,8 @@
 
     <update id="update" parameterType="com.sky.entity.Book">
         UPDATE `book`
-        SET `title` = #{title},
+        SET `cover_url` = #{coverUrl},
+            `title` = #{title},
             `author` = #{author},
             `publisher` = #{publisher},
             `isbn` = #{isbn},
@@ -133,4 +137,3 @@
     </update>
 
 </mapper>
-

@@ -2,6 +2,7 @@ import { requestJson } from './http'
 
 export type Book = {
   id: number
+  coverUrl?: string
   title: string
   author?: string
   publisher?: string

@@ -5,6 +5,7 @@
     <select id="listBooks" resultType="com.sky.entity.Book">
         SELECT
             `id`,
+            `cover_url` AS `coverUrl`,
             `title`,
             `author`,
             `publisher`,
@@ -51,6 +52,7 @@
     <select id="getById" parameterType="long" resultType="com.sky.entity.Book">
         SELECT
             `id`,
+            `cover_url` AS `coverUrl`,
             `title`,
             `author`,
             `publisher`,

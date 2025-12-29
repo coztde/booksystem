@@ -62,34 +62,43 @@ onMounted(() => load())
       <div v-if="errorMsg" class="alert">{{ errorMsg }}</div>
 
       <div v-if="book" class="card">
-        <div class="title-row">
-          <div class="h1">{{ book.title }}</div>
-          <div v-if="book.category" class="pill">{{ book.category }}</div>
-        </div>
-
-        <div class="grid">
-          <div class="kv"><span class="k">作者</span><span class="v">{{ book.author || '—' }}</span></div>
-          <div class="kv"><span class="k">出版社</span><span class="v">{{ book.publisher || '—' }}</span></div>
-          <div class="kv"><span class="k">ISBN</span><span class="v">{{ book.isbn || '—' }}</span></div>
-          <div class="kv"><span class="k">馆藏位置</span><span class="v">{{ book.location || '—' }}</span></div>
-          <div class="kv">
-            <span class="k">库存</span>
-            <span class="v">
-              可借 <span class="strong">{{ book.availableQty ?? 0 }}</span> / 总量 {{ book.totalQty ?? 0 }}
-            </span>
+        <div class="layout">
+          <div class="cover">
+            <img v-if="book.coverUrl" :src="book.coverUrl" alt="" />
+            <div v-else class="cover-fallback" aria-hidden="true">{{ (book.title || '图').slice(0, 1) }}</div>
           </div>
-        </div>
 
-        <div v-if="book.description" class="desc">
-          <div class="h2">简介</div>
-          <div class="muted">{{ book.description }}</div>
-        </div>
+          <div class="content">
+            <div class="title-row">
+              <div class="h1">{{ book.title }}</div>
+              <div v-if="book.category" class="pill">{{ book.category }}</div>
+            </div>
 
-        <div class="ops">
-          <button class="btn btn-primary" type="button" :disabled="available() <= 0" @click="doBorrow">
-            {{ available() <= 0 ? '暂无可借' : '借阅' }}
-          </button>
-          <button class="btn" type="button" @click="router.push('/resources')">返回馆藏</button>
+            <div class="grid">
+              <div class="kv"><span class="k">作者</span><span class="v">{{ book.author || '—' }}</span></div>
+              <div class="kv"><span class="k">出版社</span><span class="v">{{ book.publisher || '—' }}</span></div>
+              <div class="kv"><span class="k">ISBN</span><span class="v">{{ book.isbn || '—' }}</span></div>
+              <div class="kv"><span class="k">馆藏位置</span><span class="v">{{ book.location || '—' }}</span></div>
+              <div class="kv">
+                <span class="k">库存</span>
+                <span class="v">
+                  可借 <span class="strong">{{ book.availableQty ?? 0 }}</span> / 总量 {{ book.totalQty ?? 0 }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="book.description" class="desc">
+              <div class="h2">简介</div>
+              <div class="muted">{{ book.description }}</div>
+            </div>
+
+            <div class="ops">
+              <button class="btn btn-primary" type="button" :disabled="available() <= 0" @click="doBorrow">
+                {{ available() <= 0 ? '暂无可借' : '借阅' }}
+              </button>
+              <button class="btn" type="button" @click="router.push('/resources')">返回馆藏</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -127,6 +136,47 @@ onMounted(() => load())
   background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--shadow);
   padding: 18px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.cover {
+  width: 220px;
+  height: 300px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(11, 43, 91, 0.14);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 18px 40px rgba(5, 20, 45, 0.14);
+  display: grid;
+  place-items: center;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 56px;
+  color: rgba(11, 43, 91, 0.82);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(18, 59, 121, 0.18) 0%, rgba(18, 59, 121, 0.06) 55%, rgba(255, 255, 255, 0) 100%);
+}
+
+.content {
+  min-width: 0;
 }
 
 .title-row {
@@ -198,6 +248,13 @@ onMounted(() => load())
 }
 
 @media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .cover {
+    width: 140px;
+    height: 192px;
+  }
   .grid {
     grid-template-columns: 1fr;
   }

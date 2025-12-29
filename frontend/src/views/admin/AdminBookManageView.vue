@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { adminCreateBook, adminDeleteBook, adminGetBook, adminPageBooks, adminUpdateBook, type AdminBook } from '@/api/admin'
+import {
+  adminCreateBook,
+  adminDeleteBook,
+  adminGetBook,
+  adminPageBooks,
+  adminUpdateBook,
+  adminUploadBookCover,
+  type AdminBook,
+} from '@/api/admin'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -22,8 +30,11 @@ const editorMode = ref<'create' | 'edit'>('create')
 const activeRowId = ref<number | null>(null)
 const detailLoading = ref(false)
 const saving = ref(false)
+const uploadingCover = ref(false)
+const fileEl = ref<HTMLInputElement | null>(null)
 const form = ref<Partial<AdminBook>>({
   id: 0,
+  coverUrl: '',
   title: '',
   author: '',
   publisher: '',
@@ -86,6 +97,7 @@ function openCreate() {
   activeRowId.value = null
   detailLoading.value = false
   form.value = {
+    coverUrl: '',
     title: '',
     author: '',
     publisher: '',
@@ -105,6 +117,7 @@ async function openEdit(id: number) {
   detailLoading.value = true
   form.value = {
     id,
+    coverUrl: '',
     title: '',
     author: '',
     publisher: '',
@@ -135,6 +148,7 @@ function closeEditor() {
 
 async function save() {
   const payload = {
+    coverUrl: form.value.coverUrl || undefined,
     title: form.value.title,
     author: form.value.author || undefined,
     publisher: form.value.publisher || undefined,
@@ -183,6 +197,45 @@ async function remove(id: number) {
     toast.success('已删除')
   } catch (e: any) {
     toast.error(e?.message || '删除失败')
+  }
+}
+
+function pickCover() {
+  if (uploadingCover.value) return
+  fileEl.value?.click()
+}
+
+function clearCover() {
+  form.value.coverUrl = ''
+  if (fileEl.value) fileEl.value.value = ''
+}
+
+async function onCoverChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件')
+    input.value = ''
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('图片过大，请选择 5MB 以内的文件')
+    input.value = ''
+    return
+  }
+
+  uploadingCover.value = true
+  try {
+    const url = await adminUploadBookCover(file)
+    form.value.coverUrl = url
+    toast.success('封面已上传')
+  } catch (err: any) {
+    toast.error(err?.message || '上传失败')
+    input.value = ''
+  } finally {
+    uploadingCover.value = false
   }
 }
 
@@ -239,11 +292,19 @@ onMounted(() => load())
 
       <div v-for="it in records" :key="it.id" class="tr">
         <div class="td w-title">
-          <div class="t">{{ it.title }}</div>
-          <div class="s muted">
-            <span v-if="it.author">{{ it.author }}</span>
-            <span v-if="it.publisher"> · {{ it.publisher }}</span>
-            <span v-if="it.isbn"> · {{ it.isbn }}</span>
+          <div class="title-row">
+            <div class="cover">
+              <img v-if="it.coverUrl" :src="it.coverUrl" alt="" loading="lazy" />
+              <div v-else class="cover-fallback" aria-hidden="true">{{ (it.title || '图').slice(0, 1) }}</div>
+            </div>
+            <div class="title-main">
+              <div class="t">{{ it.title }}</div>
+              <div class="s muted">
+                <span v-if="it.author">{{ it.author }}</span>
+                <span v-if="it.publisher"> · {{ it.publisher }}</span>
+                <span v-if="it.isbn"> · {{ it.isbn }}</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="td w-meta">{{ it.category || '-' }}</div>
@@ -267,6 +328,27 @@ onMounted(() => load())
 
             <div class="editor-body">
               <div v-if="detailLoading" class="muted loading-tip">加载中...</div>
+
+              <div class="cover-edit">
+                <div class="label">封面</div>
+                <div class="cover-edit-body">
+                  <div class="cover large">
+                    <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
+                    <div v-else class="cover-fallback large" aria-hidden="true">{{ (form.title || '图').slice(0, 1) }}</div>
+                  </div>
+                  <div class="cover-actions">
+                    <input ref="fileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
+                    <div class="row">
+                      <button class="btn" type="button" :disabled="detailLoading || uploadingCover" @click="pickCover">
+                        {{ uploadingCover ? '上传中…' : '选择图片' }}
+                      </button>
+                      <button class="btn" type="button" :disabled="detailLoading" @click="clearCover">清除</button>
+                    </div>
+                    <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
+                    <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
+                  </div>
+                </div>
+              </div>
 
               <div class="grid">
                 <div class="field">
@@ -340,6 +422,27 @@ onMounted(() => load())
       </div>
 
       <div class="editor-body">
+        <div class="cover-edit">
+          <div class="label">封面</div>
+          <div class="cover-edit-body">
+            <div class="cover large">
+              <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
+              <div v-else class="cover-fallback large" aria-hidden="true">{{ (form.title || '图').slice(0, 1) }}</div>
+            </div>
+            <div class="cover-actions">
+              <input ref="fileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
+              <div class="row">
+                <button class="btn" type="button" :disabled="uploadingCover" @click="pickCover">
+                  {{ uploadingCover ? '上传中…' : '选择图片' }}
+                </button>
+                <button class="btn" type="button" @click="clearCover">清除</button>
+              </div>
+              <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
+              <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
+            </div>
+          </div>
+        </div>
+
         <div class="grid">
           <div class="field">
             <div class="label">状态</div>
@@ -488,12 +591,98 @@ onMounted(() => load())
   gap: 4px;
 }
 
+.title-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.title-main {
+  min-width: 0;
+}
+
 .t {
   color: rgba(11, 43, 91, 0.92);
   font-weight: 650;
 }
 
 .s {
+  font-size: 12px;
+}
+
+.cover {
+  width: 44px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(11, 43, 91, 0.14);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 26px rgba(5, 20, 45, 0.1);
+  display: grid;
+  place-items: center;
+}
+
+.cover.large {
+  width: 84px;
+  height: 108px;
+  border-radius: 16px;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  color: rgba(11, 43, 91, 0.82);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(18, 59, 121, 0.18) 0%, rgba(18, 59, 121, 0.06) 55%, rgba(255, 255, 255, 0) 100%);
+}
+
+.cover-fallback.large {
+  font-size: 26px;
+}
+
+.cover-edit {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.cover-edit-body {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.cover-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.cover-actions .row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file {
+  display: none;
+}
+
+.tip {
   font-size: 12px;
 }
 
