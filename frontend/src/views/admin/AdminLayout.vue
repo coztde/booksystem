@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import AuthRequiredPanel from '@/components/AuthRequiredPanel.vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const route = useRoute()
@@ -8,6 +9,7 @@ const router = useRouter()
 const adminAuth = useAdminAuthStore()
 adminAuth.hydrate()
 
+const needLogin = computed(() => !adminAuth.isLoggedIn)
 const adminName = computed(() => adminAuth.user?.name || adminAuth.user?.username || '管理员')
 
 function isActive(path: string) {
@@ -17,6 +19,10 @@ function isActive(path: string) {
 function logout() {
   adminAuth.logout()
   router.replace('/admin/login')
+}
+
+function goLogin() {
+  router.replace({ path: '/admin/login', query: { redirect: route.fullPath } })
 }
 </script>
 
@@ -29,7 +35,7 @@ function logout() {
           <div class="muted sub">{{ adminName }}</div>
         </div>
 
-        <nav class="nav">
+        <nav v-if="!needLogin" class="nav">
           <RouterLink class="nav-link" :class="{ active: isActive('/admin/posts') }" :to="{ path: '/admin/posts', query: { type: '2' } }">
             内容管理
           </RouterLink>
@@ -40,12 +46,16 @@ function logout() {
 
         <div class="actions">
           <button class="btn" type="button" @click="router.push('/')">返回门户</button>
-          <button class="btn btn-primary" type="button" @click="logout">退出登录</button>
+          <button v-if="needLogin" class="btn btn-primary" type="button" @click="goLogin">去登录</button>
+          <button v-else class="btn btn-primary" type="button" @click="logout">退出登录</button>
         </div>
       </aside>
 
       <main class="main">
-        <RouterView />
+        <div v-if="needLogin" class="main-inner">
+          <AuthRequiredPanel scope="admin" />
+        </div>
+        <RouterView v-else />
       </main>
     </div>
   </div>
@@ -116,6 +126,10 @@ function logout() {
   overflow: hidden;
 }
 
+.main-inner {
+  padding: 16px;
+}
+
 @media (max-width: 960px) {
   .shell {
     grid-template-columns: 1fr;
@@ -126,4 +140,3 @@ function logout() {
   }
 }
 </style>
-

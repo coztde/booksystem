@@ -2,8 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listCurrentBorrowed, me, renewBook, returnBook, type BorrowedBook, type UserProfile } from '@/api/library'
+import AuthRequiredPanel from '@/components/AuthRequiredPanel.vue'
 import { useAuthStore } from '@/stores/auth'
-import { formatToMinute } from '@/utils/datetime'
+import { formatToMinute, normalizeDateTime } from '@/utils/datetime'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -34,6 +35,46 @@ function statusText(status: number) {
   if (status === 2) return '逾期'
   if (status === 0) return '借阅中'
   return '已还'
+}
+
+function parseToDate(value: unknown) {
+  const text = normalizeDateTime(value)
+  if (!text) return null
+  let iso = text.replace(' ', 'T')
+  if (iso.length === 16) iso += ':00'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d
+}
+
+function remainText(dueAt: unknown) {
+  const due = parseToDate(dueAt)
+  if (!due) return '—'
+
+  const now = new Date()
+  const diff = due.getTime() - now.getTime()
+  const abs = Math.abs(diff)
+  const totalMinutes = Math.floor(abs / 60000)
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes - days * 60 * 24) / 60)
+  const minutes = totalMinutes - days * 60 * 24 - hours * 60
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours > 0 && parts.length < 2) parts.push(`${hours}小时`)
+  if (days === 0 && hours === 0) parts.push(`${Math.max(1, minutes)}分钟`)
+
+  const text = parts.join('')
+  return diff >= 0 ? `剩余${text}` : `逾期${text}`
+}
+
+function remainLevel(dueAt: unknown) {
+  const due = parseToDate(dueAt)
+  if (!due) return 'normal'
+  const diff = due.getTime() - Date.now()
+  if (diff < 0) return 'danger'
+  if (diff < 24 * 60 * 60 * 1000) return 'warn'
+  return 'normal'
 }
 
 async function refresh() {
@@ -85,63 +126,94 @@ onMounted(async () => {
 <template>
   <div class="section">
     <div class="container">
-      <div class="head">
-        <div>
-          <div class="h1">用户中心</div>
-          <div class="muted sub">展示用户名与当前借阅列表（数据来自数据库）。</div>
+      <template v-if="!auth.isLoggedIn">
+        <div class="head">
+          <div>
+            <div class="h1">用户中心</div>
+            <div class="muted sub">当前页面需要登录后访问。</div>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" @click="router.push('/')">返回首页</button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="btn" type="button" @click="router.push('/resources')">去检索馆藏</button>
-          <button class="btn btn-primary" type="button" @click="logout">退出登录</button>
-        </div>
-      </div>
 
-      <div class="grid">
-        <section class="card profile">
-          <div class="h2">读者信息</div>
-          <div class="profile-rows">
-            <div class="row"><span class="k">姓名</span><span class="v">{{ name }}</span></div>
-            <div class="row"><span class="k">学号</span><span class="v">{{ code }}</span></div>
-            <div class="row">
-              <span class="k">状态</span>
-              <span class="v pill">已登录</span>
+        <div class="auth-wrap">
+          <AuthRequiredPanel />
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="head">
+          <div>
+            <div class="h1">用户中心</div>
+            <div class="muted sub">展示用户名与当前借阅列表（数据来自数据库）。</div>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" @click="router.push('/resources')">去检索馆藏</button>
+            <button class="btn btn-primary" type="button" @click="logout">退出登录</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <section class="card profile">
+            <div class="h2">读者信息</div>
+            <div class="profile-rows">
+              <div class="row"><span class="k">姓名</span><span class="v">{{ name }}</span></div>
+              <div class="row"><span class="k">学号</span><span class="v">{{ code }}</span></div>
+              <div class="row">
+                <span class="k">状态</span>
+                <span class="v pill">已登录</span>
+              </div>
             </div>
-          </div>
-          <div class="muted hint">登录态保存在 localStorage；后端接口通过 JWT 校验 `/api/user/**`。</div>
-        </section>
+            <div class="muted hint">登录态保存在 localStorage；后端接口通过 JWT 校验 `/api/user/**`。</div>
+          </section>
 
-        <section class="card borrowed">
-          <div class="head2">
-            <div class="h2">当前借阅</div>
-            <div class="muted">{{ loading ? '加载中...' : `共 ${borrowedList.length} 本` }}</div>
-          </div>
+          <section class="card borrowed">
+            <div class="head2">
+              <div class="h2">当前借阅</div>
+              <div class="muted">{{ loading ? '加载中...' : `共 ${borrowedList.length} 本` }}</div>
+            </div>
 
-          <div v-if="errorMsg" class="alert">{{ errorMsg }}</div>
+            <div v-if="errorMsg" class="alert">{{ errorMsg }}</div>
 
-          <div v-if="!loading && borrowedList.length === 0" class="empty">
-            <div class="h2">暂无借阅记录</div>
-            <div class="muted">你可以在馆藏资源页选择图书并点击“借阅”。</div>
-          </div>
+            <div v-if="!loading && borrowedList.length === 0" class="empty">
+              <div class="h2">暂无借阅记录</div>
+              <div class="muted">你可以在馆藏资源页选择图书并点击“借阅”。</div>
+            </div>
 
-          <ul v-else class="list">
-            <li v-for="it in borrowedList" :key="it.recordId" class="item">
-              <div class="title">
-                <button class="link" type="button" @click="router.push(`/books/${it.bookId}`)">{{ it.title }}</button>
-                <span class="status" :class="{ overdue: it.status === 2 }">{{ statusText(it.status) }}</span>
-              </div>
-              <div class="meta">
-                <span class="m">借出：{{ formatDate(it.borrowAt) }}</span>
-                <span class="m">应还：{{ formatDate(it.dueAt) }}</span>
-                <span class="m">续借：{{ it.renewCount }} 次</span>
-              </div>
-              <div class="ops">
-                <button class="btn" type="button" @click="doRenew(it.recordId)">续借</button>
-                <button class="btn btn-primary" type="button" @click="doReturn(it.recordId)">归还</button>
-              </div>
-            </li>
-          </ul>
-        </section>
-      </div>
+            <ul v-else class="list">
+              <li v-for="it in borrowedList" :key="it.recordId" class="item">
+                <div class="row2">
+                  <div class="thumb" @click="router.push(`/books/${it.bookId}`)">
+                    <img v-if="it.coverUrl" :src="it.coverUrl" alt="" loading="lazy" />
+                    <div v-else class="thumb-fallback" aria-hidden="true">{{ (it.title || '图').slice(0, 1) }}</div>
+                  </div>
+                  <div class="main">
+                    <div class="title">
+                      <button class="link" type="button" @click="router.push(`/books/${it.bookId}`)">{{ it.title }}</button>
+                      <span class="status" :class="{ overdue: it.status === 2 }">{{ statusText(it.status) }}</span>
+                    </div>
+                    <div class="meta">
+                      <div class="meta-left">
+                        <div class="m">借出：{{ formatDate(it.borrowAt) }}</div>
+                        <div class="remain" :class="remainLevel(it.dueAt)">{{ remainText(it.dueAt) }}</div>
+                      </div>
+                      <div class="meta-right">
+                        <div class="m">应还：{{ formatDate(it.dueAt) }}</div>
+                        <div class="m">续借：{{ it.renewCount }} 次</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="ops right">
+                    <button class="btn" type="button" @click="doRenew(it.recordId)">续借</button>
+                    <button class="btn btn-primary" type="button" @click="doReturn(it.recordId)">归还</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -164,6 +236,10 @@ onMounted(async () => {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.auth-wrap {
+  margin-top: 18px;
 }
 
 .grid {
@@ -260,6 +336,47 @@ onMounted(async () => {
   padding: 12px;
 }
 
+.row2 {
+  display: grid;
+  grid-template-columns: 84px 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.thumb {
+  width: 84px;
+  height: 112px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(11, 43, 91, 0.14);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 26px rgba(5, 20, 45, 0.1);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  color: rgba(11, 43, 91, 0.82);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(18, 59, 121, 0.18) 0%, rgba(18, 59, 121, 0.06) 55%, rgba(255, 255, 255, 0) 100%);
+}
+
+.main {
+  min-width: 0;
+}
+
 .title {
   font-family: var(--font-serif);
   font-weight: 700;
@@ -268,6 +385,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .link {
@@ -300,25 +418,84 @@ onMounted(async () => {
   background: rgba(184, 138, 44, 0.08);
 }
 
+.remain {
+  width: fit-content;
+  font-family: var(--font-sans);
+  font-weight: 650;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 43, 91, 0.18);
+  background: rgba(11, 43, 91, 0.05);
+  color: rgba(11, 43, 91, 0.86);
+}
+
+.remain.warn {
+  border-color: rgba(184, 138, 44, 0.4);
+  background: rgba(184, 138, 44, 0.08);
+}
+
+.remain.danger {
+  border-color: rgba(184, 44, 44, 0.28);
+  background: rgba(184, 44, 44, 0.08);
+  color: rgba(130, 18, 18, 0.92);
+}
+
 .meta {
   margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
   color: var(--muted);
   font-size: 12px;
 }
 
+.meta-left,
+.meta-right {
+  display: grid;
+  gap: 6px;
+}
+
 .ops {
-  margin-top: 12px;
+  margin-top: 0;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.ops.right {
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.ops.right .btn {
+  padding: 8px 12px;
+  border-radius: 12px;
 }
 
 @media (max-width: 920px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+  .row2 {
+    grid-template-columns: 72px 1fr;
+  }
+  .thumb {
+    width: 72px;
+    height: 96px;
+  }
+  .meta {
+    grid-template-columns: 1fr;
+  }
+  .ops.right {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+    padding-top: 10px;
   }
 }
 </style>

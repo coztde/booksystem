@@ -4,6 +4,24 @@ type ApiResult<T> = {
   data?: T
 }
 
+export type AuthScope = 'user' | 'admin'
+
+export const AUTH_EXPIRED_EVENT = 'lib-auth-expired'
+
+export class AuthExpiredError extends Error {
+  scope: AuthScope
+
+  constructor(scope: AuthScope, message = '登录已过期，请重新登录') {
+    super(message)
+    this.name = 'AuthExpiredError'
+    this.scope = scope
+  }
+}
+
+export function isAuthExpiredError(error: unknown): error is AuthExpiredError {
+  return error instanceof AuthExpiredError || (typeof error === 'object' && error != null && (error as any).name === 'AuthExpiredError')
+}
+
 function withToken(headers: Headers) {
   if (!headers.has('token')) {
     const token = localStorage.getItem('lib_token')
@@ -12,6 +30,18 @@ function withToken(headers: Headers) {
     }
   }
   return headers
+}
+
+function handleUnauthorized(scope: AuthScope) {
+  if (scope === 'admin') {
+    localStorage.removeItem('lib_admin_token')
+    localStorage.removeItem('lib_admin_user')
+  } else {
+    localStorage.removeItem('lib_token')
+    localStorage.removeItem('lib_user')
+  }
+
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, { detail: { scope } }))
 }
 
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -26,6 +56,12 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
     json = text ? (JSON.parse(text) as ApiResult<T>) : null
   } catch {
     json = null
+  }
+
+  if (response.status === 401) {
+    const scope: AuthScope = path.startsWith('/admin/') ? 'admin' : 'user'
+    handleUnauthorized(scope)
+    throw new AuthExpiredError(scope)
   }
 
   if (!response.ok) {
@@ -51,6 +87,12 @@ export async function requestForm<T>(path: string, init: RequestInit = {}): Prom
     json = text ? (JSON.parse(text) as ApiResult<T>) : null
   } catch {
     json = null
+  }
+
+  if (response.status === 401) {
+    const scope: AuthScope = path.startsWith('/admin/') ? 'admin' : 'user'
+    handleUnauthorized(scope)
+    throw new AuthExpiredError(scope)
   }
 
   if (!response.ok) {

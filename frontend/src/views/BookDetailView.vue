@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { borrowBook, getBook, type Book } from '@/api/library'
+import BookCard from '@/components/BookCard.vue'
+import { borrowBook, getBook, listBooks, type Book } from '@/api/library'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 
@@ -15,40 +16,84 @@ const id = computed(() => Number(route.params.id))
 const book = ref<Book | null>(null)
 const loading = ref(false)
 const errorMsg = ref('')
+const recommendLoading = ref(false)
+const recommendBooks = ref<Book[]>([])
 
 function available() {
   return Number(book.value?.availableQty ?? 0)
 }
 
 async function load() {
+  const currentId = id.value
   loading.value = true
   errorMsg.value = ''
+  recommendBooks.value = []
   try {
-    book.value = await getBook(id.value)
+    const data = await getBook(currentId)
+    if (currentId !== id.value) return
+    book.value = data
+    await loadRecommend(data.category, currentId)
   } catch (e: any) {
     errorMsg.value = e?.message || '图书加载失败'
     book.value = null
+    recommendBooks.value = []
   } finally {
     loading.value = false
   }
 }
 
-async function doBorrow() {
+async function loadRecommend(category: string | undefined, currentBookId: number) {
+  if (!category) {
+    recommendBooks.value = []
+    return
+  }
+  recommendLoading.value = true
+  try {
+    const list = await listBooks(undefined, category)
+    recommendBooks.value = list.filter((it) => it.id !== currentBookId).slice(0, 8)
+  } catch {
+    recommendBooks.value = []
+  } finally {
+    recommendLoading.value = false
+  }
+}
+
+function goCategory() {
+  if (!book.value?.category) return
+  router.push({ path: '/resources', query: { category: book.value.category } })
+}
+
+async function doBorrow(bookId?: number) {
   if (!auth.isLoggedIn) {
     router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
-  if (!book.value) return
+  const targetId = bookId ?? book.value?.id
+  if (!targetId) return
   try {
-    await borrowBook(book.value.id)
-    await load()
+    await borrowBook(targetId)
     toast.success('借阅成功')
+    await load()
   } catch (e: any) {
     toast.error(e?.message || '借阅失败')
   }
 }
 
-onMounted(() => load())
+async function scrollToTop() {
+  await nextTick()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+watch(
+  id,
+  async (nextId, prevId) => {
+    if (prevId != null && nextId !== prevId) {
+      await scrollToTop()
+    }
+    await load()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -93,7 +138,7 @@ onMounted(() => load())
             </div>
 
             <div class="ops">
-              <button class="btn btn-primary" type="button" :disabled="available() <= 0" @click="doBorrow">
+              <button class="btn btn-primary" type="button" :disabled="available() <= 0" @click="doBorrow()">
                 {{ available() <= 0 ? '暂无可借' : '借阅' }}
               </button>
               <button class="btn" type="button" @click="router.push('/resources')">返回馆藏</button>
@@ -101,6 +146,25 @@ onMounted(() => load())
           </div>
         </div>
       </div>
+
+      <section v-if="book?.category" class="recommend">
+        <div class="recommend-head">
+          <div>
+            <div class="h2">同类推荐</div>
+            <div class="muted sub">更多“{{ book.category }}”类馆藏</div>
+          </div>
+          <button class="btn" type="button" @click="goCategory">查看更多</button>
+        </div>
+
+        <div v-if="recommendLoading" class="muted loading-tip">加载中...</div>
+        <div v-else-if="recommendBooks.length === 0" class="empty small">
+          <div class="h2">暂无推荐</div>
+          <div class="muted">该分类下暂时没有更多图书。</div>
+        </div>
+        <div v-else class="recommend-grid">
+          <BookCard v-for="b in recommendBooks" :key="b.id" :book="b" @view="(bid) => router.push(`/books/${bid}`)" @borrow="doBorrow" />
+        </div>
+      </section>
 
       <div v-else-if="!loading && !errorMsg" class="empty">
         <div class="h2">未找到图书</div>
@@ -247,6 +311,40 @@ onMounted(() => load())
   text-align: center;
 }
 
+.empty.small {
+  margin-top: 12px;
+  background: rgba(245, 247, 251, 0.86);
+}
+
+.recommend {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 40px rgba(5, 20, 45, 0.06);
+  padding: 16px;
+}
+
+.recommend-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recommend-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.loading-tip {
+  padding: 12px 2px;
+}
+
 @media (max-width: 860px) {
   .layout {
     grid-template-columns: 1fr;
@@ -258,6 +356,8 @@ onMounted(() => load())
   .grid {
     grid-template-columns: 1fr;
   }
+  .recommend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>
-

@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class BorrowedBookVO {
     private Long recordId;
     private Long bookId;
+    private String coverUrl;
     private String title;
     private String author;
     private String publisher;
@@ -17,4 +18,3 @@ public class BorrowedBookVO {
     private Integer renewCount;
     private Integer status;
 }
-

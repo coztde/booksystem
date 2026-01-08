@@ -6,6 +6,7 @@ export type Slide = {
   tag: string
   title: string
   subtitle: string
+  coverUrl?: string
   accent?: string
 }
 
@@ -54,6 +55,7 @@ onUnmounted(() => stop())
         :disabled="!current"
         @click="current && emit('open', current.id)"
       >
+        <div v-if="current?.coverUrl" class="cover" :style="{ backgroundImage: `url(${current.coverUrl})` }" aria-hidden="true" />
         <div class="tag">{{ current?.tag }}</div>
         <div class="title">{{ current?.title }}</div>
         <div class="subtitle">{{ current?.subtitle }}</div>
@@ -99,6 +101,7 @@ onUnmounted(() => stop())
   padding: 22px 22px 18px;
   width: 100%;
   text-align: left;
+  overflow: hidden;
   background: radial-gradient(800px 260px at 10% 20%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7) 46%, rgba(255, 255, 255, 0.55) 100%),
     radial-gradient(900px 380px at 85% 0%, rgba(18, 59, 121, 0.22), transparent 55%),
     linear-gradient(135deg, rgba(11, 43, 91, 1), rgba(18, 59, 121, 1));
@@ -106,6 +109,19 @@ onUnmounted(() => stop())
   border: none;
   cursor: pointer;
   transition: transform 180ms ease, filter 180ms ease;
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.36;
+  filter: saturate(1.05) contrast(1.05);
+  transform: scale(1.03);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .paper:disabled {
@@ -127,10 +143,15 @@ onUnmounted(() => stop())
   background-size: 26px 26px;
   opacity: 0.34;
   pointer-events: none;
+  z-index: 1;
+}
+
+.paper > :not(.cover) {
+  position: relative;
+  z-index: 2;
 }
 
 .tag {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -144,7 +165,6 @@ onUnmounted(() => stop())
 }
 
 .title {
-  position: relative;
   margin-top: 14px;
   font-family: var(--font-serif);
   font-weight: 700;
@@ -154,7 +174,6 @@ onUnmounted(() => stop())
 }
 
 .subtitle {
-  position: relative;
   margin-top: 10px;
   color: rgba(255, 255, 255, 0.86);
   font-size: 14px;
@@ -162,7 +181,6 @@ onUnmounted(() => stop())
 }
 
 .ornament {
-  position: relative;
   margin-top: 18px;
   display: flex;
   gap: 10px;

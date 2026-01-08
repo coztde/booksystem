@@ -24,6 +24,7 @@ export type LoginResponse = {
 export type BorrowedBook = {
   recordId: number
   bookId: number
+  coverUrl?: string
   title: string
   author?: string
   publisher?: string

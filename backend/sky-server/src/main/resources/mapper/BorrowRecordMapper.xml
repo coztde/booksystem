@@ -6,6 +6,7 @@
         SELECT
             br.`id` AS `recordId`,
             br.`book_id` AS `bookId`,
+            b.`cover_url` AS `coverUrl`,
             b.`title`,
             b.`author`,
             b.`publisher`,

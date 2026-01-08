@@ -92,6 +92,10 @@ function search() {
 }
 
 function openCreate() {
+  if (editorOpen.value && editorMode.value === 'create') {
+    closeEditor()
+    return
+  }
   editorMode.value = 'create'
   editorOpen.value = true
   activeRowId.value = null
@@ -111,6 +115,10 @@ function openCreate() {
 }
 
 async function openEdit(id: number) {
+  if (editorOpen.value && editorMode.value === 'edit' && activeRowId.value === id) {
+    closeEditor()
+    return
+  }
   editorMode.value = 'edit'
   editorOpen.value = true
   activeRowId.value = id
@@ -259,6 +267,92 @@ onMounted(() => load())
         <div class="muted sub">新增/编辑/删除 · 调整库存与状态</div>
       </div>
       <button class="btn btn-primary" type="button" @click="openCreate">新增图书</button>
+    </div>
+
+    <div v-if="editorOpen && editorMode === 'create'" class="create-host">
+      <div class="editor create">
+        <div class="editor-head">
+          <div class="h2">{{ editorMode === 'create' ? '新增图书' : '编辑图书' }}</div>
+          <button class="btn" type="button" @click="closeEditor">关闭</button>
+        </div>
+
+        <div class="editor-body">
+          <div class="cover-edit">
+            <div class="label">封面</div>
+            <div class="cover-edit-body">
+              <div class="cover large">
+                <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
+                <div v-else class="cover-fallback large" aria-hidden="true">{{ (form.title || '图').slice(0, 1) }}</div>
+              </div>
+              <div class="cover-actions">
+                <input ref="fileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
+                <div class="row">
+                  <button class="btn" type="button" :disabled="uploadingCover" @click="pickCover">
+                    {{ uploadingCover ? '上传中…' : '选择图片' }}
+                  </button>
+                  <button class="btn" type="button" @click="clearCover">清除</button>
+                </div>
+                <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
+                <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="field">
+              <div class="label">状态</div>
+              <select v-model.number="form.status" class="input select">
+                <option :value="1">可借</option>
+                <option :value="0">停用</option>
+              </select>
+            </div>
+            <div class="field">
+              <div class="label">总库存</div>
+              <input v-model.number="form.totalQty" class="input" type="number" min="0" />
+            </div>
+            <div class="field">
+              <div class="label">分类</div>
+              <input v-model="form.category" class="input" placeholder="如：计算机/文学" />
+            </div>
+            <div class="field">
+              <div class="label">馆藏位置</div>
+              <input v-model="form.location" class="input" placeholder="如：主馆A区-TP3" />
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="field">
+              <div class="label">书名</div>
+              <input v-model="form.title" class="input" placeholder="请输入书名" />
+            </div>
+            <div class="field">
+              <div class="label">作者</div>
+              <input v-model="form.author" class="input" placeholder="可选" />
+            </div>
+          </div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">出版社</div>
+              <input v-model="form.publisher" class="input" placeholder="可选" />
+            </div>
+            <div class="field">
+              <div class="label">ISBN</div>
+              <input v-model="form.isbn" class="input" placeholder="可选" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">简介</div>
+            <textarea v-model="form.description" class="input textarea" rows="6" placeholder="可选" />
+          </div>
+
+          <div class="editor-actions">
+            <button class="btn btn-primary" type="button" :disabled="saving" @click="save">
+              {{ saving ? '保存中..' : '保存' }}
+            </button>
+            <button class="btn" type="button" @click="closeEditor">取消</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="filters">
@@ -414,90 +508,6 @@ onMounted(() => load())
       <div class="muted">第 {{ page }} / {{ totalPages }} 页 · 共 {{ total }} 条</div>
       <button class="btn" type="button" :disabled="page >= totalPages" @click="next">下一页</button>
     </div>
-
-    <div v-if="editorOpen && editorMode === 'create'" class="editor">
-      <div class="editor-head">
-        <div class="h2">{{ editorMode === 'create' ? '新增图书' : '编辑图书' }}</div>
-        <button class="btn" type="button" @click="closeEditor">关闭</button>
-      </div>
-
-      <div class="editor-body">
-        <div class="cover-edit">
-          <div class="label">封面</div>
-          <div class="cover-edit-body">
-            <div class="cover large">
-              <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
-              <div v-else class="cover-fallback large" aria-hidden="true">{{ (form.title || '图').slice(0, 1) }}</div>
-            </div>
-            <div class="cover-actions">
-              <input ref="fileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
-              <div class="row">
-                <button class="btn" type="button" :disabled="uploadingCover" @click="pickCover">
-                  {{ uploadingCover ? '上传中…' : '选择图片' }}
-                </button>
-                <button class="btn" type="button" @click="clearCover">清除</button>
-              </div>
-              <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
-              <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid">
-          <div class="field">
-            <div class="label">状态</div>
-            <select v-model.number="form.status" class="input select">
-              <option :value="1">可借</option>
-              <option :value="0">停用</option>
-            </select>
-          </div>
-          <div class="field">
-            <div class="label">总库存</div>
-            <input v-model.number="form.totalQty" class="input" type="number" min="0" />
-          </div>
-          <div class="field">
-            <div class="label">分类</div>
-            <input v-model="form.category" class="input" placeholder="如：计算机/文学" />
-          </div>
-          <div class="field">
-            <div class="label">馆藏位置</div>
-            <input v-model="form.location" class="input" placeholder="如：主馆A区-TP3" />
-          </div>
-        </div>
-
-        <div class="grid">
-          <div class="field">
-            <div class="label">书名</div>
-            <input v-model="form.title" class="input" placeholder="请输入书名" />
-          </div>
-          <div class="field">
-            <div class="label">作者</div>
-            <input v-model="form.author" class="input" placeholder="可选" />
-          </div>
-        </div>
-        <div class="grid">
-          <div class="field">
-            <div class="label">出版社</div>
-            <input v-model="form.publisher" class="input" placeholder="可选" />
-          </div>
-          <div class="field">
-            <div class="label">ISBN</div>
-            <input v-model="form.isbn" class="input" placeholder="可选" />
-          </div>
-        </div>
-        <div class="field">
-          <div class="label">简介</div>
-          <textarea v-model="form.description" class="input textarea" rows="6" placeholder="可选" />
-        </div>
-
-        <div class="editor-actions">
-          <button class="btn btn-primary" type="button" :disabled="saving" @click="save">
-            {{ saving ? '保存中..' : '保存' }}
-          </button>
-          <button class="btn" type="button" @click="closeEditor">取消</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -517,6 +527,17 @@ onMounted(() => load())
 
 .sub {
   margin-top: 8px;
+}
+
+.create-host {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.editor.create {
+  width: min(980px, 100%);
+  margin-top: 0;
 }
 
 .filters {
