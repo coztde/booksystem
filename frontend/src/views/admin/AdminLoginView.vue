@@ -45,7 +45,7 @@ async function submit() {
             </div>
             <div class="field">
               <label class="label" for="password">密码</label>
-              <input id="password" v-model="password" class="input" type="password" placeholder="示例：admin 密码 111111aA" autocomplete="current-password" />
+              <input id="password" v-model="password" class="input" type="password" placeholder="请输入密码" autocomplete="current-password" />
             </div>
 
             <div v-if="errorMsg" class="error">{{ errorMsg }}</div>
@@ -62,9 +62,9 @@ async function submit() {
           <div class="panel">
             <div class="h2">默认管理员</div>
             <ul class="tips">
-              <li>用户名：admin</li>
-              <li>密码：111111aA（SHA-256 存储）</li>
-              <li>需先执行 `backend/sql/book_seed.sql` 初始化数据</li>
+              <li>管理用户</li>
+              <li>管理书籍</li>
+              <li>管理通知新闻</li>
             </ul>
           </div>
         </div>

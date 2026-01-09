@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import HeroCarousel, { type Slide } from '@/components/HeroCarousel.vue'
 import type { NewsItem } from '@/components/NewsBoard.vue'
@@ -28,14 +28,62 @@ const userEntryText = computed(() => (auth.isLoggedIn ? '我的图书馆' : '读
 const currentInfoList = computed(() => (infoTab.value === 'notices' ? notices.value : news.value))
 const featuredSlide = computed(() => slides.value[0] || null)
 
-const quickKeywords = ['人工智能', '数据结构', '数据库', '计算机网络', 'Java', '文学']
+const MAX_RECENT_CATEGORIES = 8
+const recentCategories = ref<string[]>([])
+const recentCategoryStoreKey = computed(() => `lib_home_recent_categories:${auth.user?.userId ?? 'guest'}`)
+
+function loadRecentCategories() {
+  try {
+    const raw = localStorage.getItem(recentCategoryStoreKey.value)
+    if (!raw) {
+      recentCategories.value = []
+      return
+    }
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      recentCategories.value = []
+      return
+    }
+    recentCategories.value = parsed
+      .filter((it): it is string => typeof it === 'string' && it.trim().length > 0)
+      .map((it) => it.trim())
+      .slice(0, MAX_RECENT_CATEGORIES)
+  } catch {
+    recentCategories.value = []
+  }
+}
+
+function persistRecentCategories() {
+  try {
+    localStorage.setItem(recentCategoryStoreKey.value, JSON.stringify(recentCategories.value))
+  } catch {
+    // ignore
+  }
+}
+
+function trackRecentCategory(category: string) {
+  const cat = category.trim()
+  if (!cat) return
+  const next = [cat, ...recentCategories.value.filter((it) => it !== cat)].slice(0, MAX_RECENT_CATEGORIES)
+  recentCategories.value = next
+  persistRecentCategories()
+}
+
+function clearRecentCategories() {
+  recentCategories.value = []
+  try {
+    localStorage.removeItem(recentCategoryStoreKey.value)
+  } catch {
+    // ignore
+  }
+}
 
 const commonDatabases = [
-  { title: 'CNKI 知网（示例）', href: 'https://www.cnki.net' },
-  { title: 'Web of Science（示例）', href: 'https://www.webofscience.com' },
-  { title: 'IEEE Xplore（示例）', href: 'https://ieeexplore.ieee.org' },
-  { title: 'ScienceDirect（示例）', href: 'https://www.sciencedirect.com' },
-  { title: 'EBSCO（示例）', href: 'https://www.ebsco.com' },
+  { title: 'CNKI 知网', href: 'https://www.cnki.net' },
+  { title: 'Web of Science', href: 'https://www.webofscience.com' },
+  { title: 'IEEE Xplore', href: 'https://ieeexplore.ieee.org' },
+  { title: 'ScienceDirect', href: 'https://www.sciencedirect.com' },
+  { title: 'EBSCO', href: 'https://www.ebsco.com' },
 ]
 
 async function loadPortal() {
@@ -73,9 +121,9 @@ function submitSearch() {
   router.push({ path: '/resources', query: keyword ? { q: keyword } : {} })
 }
 
-function quickSearch(keyword: string) {
-  q.value = keyword
-  submitSearch()
+function quickCategory(category: string) {
+  trackRecentCategory(category)
+  router.push({ path: '/resources', query: { category } })
 }
 
 function goMyLibrary() {
@@ -99,6 +147,8 @@ function openPost(id: number) {
 onMounted(() => {
   loadPortal()
 })
+
+watch(recentCategoryStoreKey, () => loadRecentCategories(), { immediate: true })
 </script>
 
 <template>
@@ -149,11 +199,22 @@ onMounted(() => {
               />
               <button class="portal-submit" type="submit">检索</button>
             </div>
-            <div class="portal-quick" aria-label="快捷检索">
+            <div class="portal-quick" aria-label="快捷分类">
               <span class="quick-label">快捷</span>
-              <button v-for="kw in quickKeywords" :key="kw" class="quick-chip" type="button" @click="quickSearch(kw)">
-                {{ kw }}
-              </button>
+              <template v-if="recentCategories.length">
+                <button
+                  v-for="cat in recentCategories"
+                  :key="`cat:${cat}`"
+                  class="quick-chip recent"
+                  type="button"
+                  :title="cat"
+                  @click="quickCategory(cat)"
+                >
+                  {{ cat }}
+                </button>
+                <button class="quick-clear" type="button" aria-label="清空快捷分类" @click="clearRecentCategories">清空</button>
+              </template>
+              <span v-else class="quick-empty">暂无 · 去“馆藏资源”点分类即可生成</span>
             </div>
             <nav class="portal-nav" aria-label="主导航">
               <button class="nav-item" type="button" @click="router.push('/resources')">资源</button>
@@ -165,35 +226,97 @@ onMounted(() => {
 
           <div class="dock" aria-label="快捷服务">
             <button class="dock-item" type="button" @click="router.push('/resources')">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="6" />
+                  <path d="M20 20l-3.4-3.4" />
+                </svg>
+              </span>
               <span class="dock-text">馆藏检索</span>
             </button>
             <button class="dock-item" type="button" @click="goMyLibrary">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <rect x="4" y="7" width="12" height="10" rx="2" />
+                  <path d="M7 10h6" />
+                  <path d="M7 13h4" />
+                  <path d="M14 12h6" />
+                  <path d="M17 9l3 3-3 3" />
+                </svg>
+              </span>
               <span class="dock-text">入馆与借阅</span>
             </button>
             <button class="dock-item" type="button" @click="router.push({ path: '/posts', query: { type: '2' } })">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="12" height="16" rx="2" />
+                  <path d="M12 9h4" />
+                  <path d="M14 7v4" />
+                  <path d="M9 18h6" />
+                </svg>
+              </span>
               <span class="dock-text">新书通报</span>
             </button>
             <button class="dock-item" type="button" @click="router.push({ path: '/posts', query: { type: '3' } })">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <path d="M6 16v-5a6 6 0 0 1 12 0v5" />
+                  <path d="M5 16h14" />
+                  <path d="M10 18a2 2 0 0 0 4 0" />
+                  <path d="M12 5v-1" />
+                </svg>
+              </span>
               <span class="dock-text">通知公告</span>
             </button>
             <button class="dock-item" type="button" @click="scrollTo('portal')">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <rect x="5" y="4" width="14" height="16" rx="2" />
+                  <path d="M8 8h8" />
+                  <path d="M8 11h8" />
+                  <path d="M8 14h6" />
+                  <path d="M8 17h5" />
+                </svg>
+              </span>
               <span class="dock-text">资讯速览</span>
             </button>
             <button class="dock-item" type="button" @click="router.push('/resources')">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <rect x="4" y="4" width="7" height="7" rx="1.5" />
+                  <rect x="13" y="4" width="7" height="7" rx="1.5" />
+                  <rect x="4" y="13" width="7" height="7" rx="1.5" />
+                  <rect x="13" y="13" width="7" height="7" rx="1.5" />
+                </svg>
+              </span>
               <span class="dock-text">分类导航</span>
             </button>
             <button class="dock-item" type="button" @click="router.push('/admin')">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="3.5" />
+                  <path d="M12 2v3" />
+                  <path d="M12 19v3" />
+                  <path d="M2 12h3" />
+                  <path d="M19 12h3" />
+                  <path d="M4.22 4.22l2.12 2.12" />
+                  <path d="M17.66 17.66l2.12 2.12" />
+                  <path d="M4.22 19.78l2.12-2.12" />
+                  <path d="M17.66 6.34l2.12-2.12" />
+                </svg>
+              </span>
               <span class="dock-text">后台管理</span>
             </button>
             <button class="dock-item" type="button" @click="scrollTo('services')">
-              <span class="dock-icon" aria-hidden="true" />
+              <span class="dock-icon" aria-hidden="true">
+                <svg class="dock-svg" viewBox="0 0 24 24">
+                  <path d="M9 7V6a3 3 0 0 1 6 0v1" />
+                  <rect x="4" y="7" width="16" height="13" rx="2" />
+                  <path d="M4 13h16" />
+                  <path d="M10 13v2" />
+                  <path d="M14 13v2" />
+                </svg>
+              </span>
               <span class="dock-text">常用服务</span>
             </button>
           </div>
@@ -214,7 +337,6 @@ onMounted(() => {
           <div class="db-panel">
             <div class="db-head">
               <div class="db-title">常用数据库</div>
-              <button class="db-more" type="button" @click="router.push('/resources')">MORE+</button>
             </div>
             <ul class="db-list">
               <li v-for="db in commonDatabases" :key="db.title" class="db-item">
@@ -294,7 +416,7 @@ onMounted(() => {
         <div id="services" class="services">
           <div class="services-head">
             <div class="h2">常用服务</div>
-            <div class="muted">可点击跳转（课程设计示例）</div>
+            <div class="muted">可点击跳转</div>
           </div>
 
           <div class="service-grid">
@@ -652,12 +774,46 @@ onMounted(() => {
   border-radius: 999px;
   cursor: pointer;
   transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-chip:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.86);
   border-color: rgba(11, 43, 91, 0.22);
+}
+
+.quick-chip.recent {
+  border-color: rgba(184, 138, 44, 0.3);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(184, 138, 44, 0.18), rgba(255, 255, 255, 0.88) 58%),
+    rgba(255, 255, 255, 0.74);
+  box-shadow: 0 10px 18px rgba(11, 43, 91, 0.06);
+}
+
+.quick-empty {
+  font-size: 12px;
+  color: rgba(11, 43, 91, 0.52);
+  letter-spacing: 0.4px;
+  padding-left: 6px;
+}
+
+.quick-clear {
+  border: 1px dashed rgba(11, 43, 91, 0.18);
+  background: rgba(11, 43, 91, 0.02);
+  color: rgba(11, 43, 91, 0.72);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.quick-clear:hover {
+  transform: translateY(-1px);
+  background: rgba(11, 43, 91, 0.04);
+  border-color: rgba(11, 43, 91, 0.26);
 }
 
 .portal-nav {
@@ -718,6 +874,19 @@ onMounted(() => {
   background: radial-gradient(120% 120% at 30% 20%, rgba(184, 138, 44, 0.24), rgba(255, 255, 255, 0.9) 55%),
     linear-gradient(180deg, rgba(18, 59, 121, 0.24), rgba(11, 43, 91, 0.08));
   box-shadow: 0 10px 20px rgba(11, 43, 91, 0.1);
+  display: grid;
+  place-items: center;
+  color: rgba(11, 43, 91, 0.86);
+}
+
+.dock-svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .dock-text {

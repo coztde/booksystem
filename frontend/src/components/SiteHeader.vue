@@ -33,7 +33,7 @@ function logout() {
     <div class="topbar">
       <div class="container topbar-inner">
         <div class="topbar-left">
-          <span class="badge">课程设计</span>
+          <span class="badge">WZUT</span>
           <span class="muted">高校图书馆中文门户</span>
         </div>
         <div class="topbar-right">

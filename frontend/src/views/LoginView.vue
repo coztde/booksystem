@@ -41,7 +41,7 @@ async function submit() {
           <form class="form" @submit.prevent="submit">
             <div class="field">
               <label class="label" for="code">学号</label>
-              <input id="code" v-model="code" class="input" placeholder="例如：20230001" autocomplete="username" />
+              <input id="code" v-model="code" class="input" placeholder="请输入学号" autocomplete="username" />
             </div>
             <div class="field">
               <label class="label" for="password">密码</label>
@@ -50,7 +50,7 @@ async function submit() {
                 v-model="password"
                 class="input"
                 type="password"
-                placeholder="示例数据默认：111111aA"
+                placeholder="请输入密码"
                 autocomplete="current-password"
               />
             </div>
@@ -71,9 +71,9 @@ async function submit() {
           <div class="panel">
             <div class="h2">演示说明</div>
             <ul class="tips">
-              <li>执行 `backend/sql/book_seed.sql` 后可用学号登录，密码统一为 `111111aA`</li>
+              <li>可用学号登录</li>
               <li>后端使用 JWT 生成 token，前端使用 localStorage 持久化登录态</li>
-              <li>课程设计可在此基础上扩展：注册、修改密码、真实借阅/归还流程</li>
+              <li>登录后可借阅</li>
             </ul>
           </div>
         </div>

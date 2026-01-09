@@ -146,7 +146,7 @@ onMounted(async () => {
         <div class="head">
           <div>
             <div class="h1">用户中心</div>
-            <div class="muted sub">展示用户名与当前借阅列表（数据来自数据库）。</div>
+            <div class="muted sub">展示用户名与当前借阅列表。</div>
           </div>
           <div class="actions">
             <button class="btn" type="button" @click="router.push('/resources')">去检索馆藏</button>
@@ -165,7 +165,7 @@ onMounted(async () => {
                 <span class="v pill">已登录</span>
               </div>
             </div>
-            <div class="muted hint">登录态保存在 localStorage；后端接口通过 JWT 校验 `/api/user/**`。</div>
+            <div class="muted hint">续借可延期30天，请按时归还。</div>
           </section>
 
           <section class="card borrowed">

@@ -154,8 +154,8 @@ onMounted(() => load())
           <div class="t">{{ it.userName }}</div>
           <div class="s muted">{{ it.userCode }}</div>
         </div>
-        <div class="td w-title">
-          <div class="t">{{ it.bookTitle }}</div>
+        <div class="td w-title book">
+          <div class="t" :title="it.bookTitle">{{ it.bookTitle }}</div>
           <div class="s muted">ID: {{ it.bookId }}</div>
         </div>
         <div class="td w-meta">{{ formatToMinute(it.borrowAt) }}</div>
@@ -243,12 +243,23 @@ onMounted(() => load())
   margin-top: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
 }
 
 .tr {
   display: grid;
-  grid-template-columns: 90px 170px 1.2fr 170px 170px 170px 110px 90px 180px;
+  grid-template-columns:
+    84px
+    minmax(140px, 170px)
+    minmax(220px, 1.2fr)
+    minmax(140px, 160px)
+    minmax(140px, 160px)
+    minmax(140px, 160px)
+    96px
+    72px
+    minmax(140px, 170px);
   gap: 0;
   border-top: 1px solid var(--line);
 }
@@ -269,12 +280,14 @@ onMounted(() => load())
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .w-title {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-width: 0;
 }
 
 .t {
@@ -282,8 +295,22 @@ onMounted(() => load())
   font-weight: 650;
 }
 
+.w-title.book .t {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
 .s {
   font-size: 12px;
+}
+
+.w-meta {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .w-op {

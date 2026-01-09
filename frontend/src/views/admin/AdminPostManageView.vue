@@ -7,6 +7,7 @@ import {
   adminGetPost,
   adminPagePosts,
   adminUpdatePost,
+  adminUploadPostCover,
   type AdminPortalPostDetail,
   type AdminPortalPostListItem,
 } from '@/api/admin'
@@ -36,6 +37,8 @@ const editorMode = ref<'create' | 'edit'>('create')
 const activeRowId = ref<number | null>(null)
 const detailLoading = ref(false)
 const saving = ref(false)
+const uploadingCover = ref(false)
+const coverFileEl = ref<HTMLInputElement | null>(null)
 const form = ref<AdminPortalPostDetail>({
   id: 0,
   type: type.value,
@@ -200,6 +203,49 @@ async function remove(id: number) {
   }
 }
 
+function setCoverFileEl(el: any) {
+  coverFileEl.value = el as HTMLInputElement | null
+}
+
+function pickCover() {
+  if (uploadingCover.value) return
+  coverFileEl.value?.click()
+}
+
+function clearCover() {
+  form.value.coverUrl = ''
+  if (coverFileEl.value) coverFileEl.value.value = ''
+}
+
+async function onCoverChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件')
+    input.value = ''
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('图片过大，请选择 5MB 以内的文件')
+    input.value = ''
+    return
+  }
+
+  uploadingCover.value = true
+  try {
+    const url = await adminUploadPostCover(file)
+    form.value.coverUrl = url
+    toast.success('封面已上传')
+  } catch (err: any) {
+    toast.error(err?.message || '上传失败')
+    input.value = ''
+  } finally {
+    uploadingCover.value = false
+  }
+}
+
 function search() {
   page.value = 1
   load()
@@ -328,10 +374,26 @@ onMounted(() => load())
                 <div class="label">摘要/副标题</div>
                 <input v-model="form.subtitle" class="input" placeholder="列表摘要/轮播说明（可选）" />
               </div>
-              <div class="grid">
+              <div class="grid cover-grid">
                 <div class="field">
-                  <div class="label">封面图 URL（可选）</div>
-                  <input v-model="form.coverUrl" class="input" placeholder="https://..." />
+                  <div class="label">封面图（可选）</div>
+                  <div class="cover-field">
+                    <div class="thumb">
+                      <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
+                      <div v-else class="thumb-fallback" aria-hidden="true">封面</div>
+                    </div>
+                    <div class="cover-actions">
+                      <input :ref="setCoverFileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
+                      <div class="row">
+                        <button class="btn" type="button" :disabled="saving || detailLoading || uploadingCover" @click="pickCover">
+                          {{ uploadingCover ? '上传中…' : '选择图片' }}
+                        </button>
+                        <button class="btn" type="button" :disabled="saving || detailLoading" @click="clearCover">清除</button>
+                      </div>
+                      <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
+                      <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
+                    </div>
+                  </div>
                 </div>
                 <div class="field">
                   <div class="label">强调色（可选）</div>
@@ -402,10 +464,26 @@ onMounted(() => load())
           <div class="label">摘要/副标题</div>
           <input v-model="form.subtitle" class="input" placeholder="列表摘要/轮播说明（可选）" />
         </div>
-        <div class="grid">
+        <div class="grid cover-grid">
           <div class="field">
-            <div class="label">封面图 URL（可选）</div>
-            <input v-model="form.coverUrl" class="input" placeholder="https://..." />
+            <div class="label">封面图（可选）</div>
+            <div class="cover-field">
+              <div class="thumb">
+                <img v-if="form.coverUrl" :src="form.coverUrl" alt="" />
+                <div v-else class="thumb-fallback" aria-hidden="true">封面</div>
+              </div>
+              <div class="cover-actions">
+                <input :ref="setCoverFileEl" class="file" type="file" accept="image/*" @change="onCoverChange" />
+                <div class="row">
+                  <button class="btn" type="button" :disabled="saving || uploadingCover" @click="pickCover">
+                    {{ uploadingCover ? '上传中…' : '选择图片' }}
+                  </button>
+                  <button class="btn" type="button" :disabled="saving" @click="clearCover">清除</button>
+                </div>
+                <input v-model="form.coverUrl" class="input" placeholder="或粘贴图片 URL（可选）" />
+                <div class="muted tip">建议上传 5MB 内图片（JPG/PNG/WebP），将存入阿里云 OSS</div>
+              </div>
+            </div>
           </div>
           <div class="field">
             <div class="label">强调色（可选）</div>
@@ -610,9 +688,71 @@ onMounted(() => load())
   gap: 10px;
 }
 
+.grid.cover-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: start;
+}
+
 .field {
   display: grid;
   gap: 6px;
+  align-content: start;
+}
+
+.cover-field {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.thumb {
+  width: 104px;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: rgba(245, 247, 251, 0.7);
+  box-shadow: 0 12px 28px rgba(11, 43, 91, 0.08);
+}
+
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 750;
+  letter-spacing: 1px;
+  color: rgba(11, 43, 91, 0.55);
+  background: radial-gradient(120px 60px at 20% 20%, rgba(18, 59, 121, 0.12), transparent 60%),
+    radial-gradient(120px 80px at 80% 80%, rgba(184, 138, 44, 0.12), transparent 60%), rgba(255, 255, 255, 0.7);
+}
+
+.cover-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.cover-actions .row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file {
+  display: none;
+}
+
+.tip {
+  font-size: 12px;
 }
 
 .label {
@@ -641,6 +781,16 @@ onMounted(() => load())
   }
   .grid {
     grid-template-columns: 1fr 1fr;
+  }
+  .grid.cover-grid {
+    grid-template-columns: 1fr;
+  }
+  .cover-field {
+    grid-template-columns: 1fr;
+  }
+  .thumb {
+    width: 100%;
+    max-width: 260px;
   }
 }
 

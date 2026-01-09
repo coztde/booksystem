@@ -187,6 +187,18 @@ export async function adminUploadBookCover(file: File) {
   )
 }
 
+export async function adminUploadPostCover(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return requestForm<string>(
+    '/admin/upload/post-cover',
+    withAdminToken({
+      method: 'POST',
+      body,
+    }),
+  )
+}
+
 export async function adminPageBorrows(params: { status?: number; keyword?: string; page?: number; pageSize?: number }) {
   const search = new URLSearchParams()
   if (params.status != null) search.set('status', String(params.status))

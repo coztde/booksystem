@@ -204,12 +204,21 @@ onMounted(() => load())
   margin-top: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
 }
 
 .tr {
   display: grid;
-  grid-template-columns: 80px 1.2fr 160px 160px 170px 110px 220px;
+  grid-template-columns:
+    80px
+    minmax(220px, 1.2fr)
+    minmax(120px, 150px)
+    minmax(120px, 150px)
+    minmax(140px, 160px)
+    96px
+    minmax(180px, 220px);
   gap: 0;
   border-top: 1px solid var(--line);
 }
@@ -230,21 +239,31 @@ onMounted(() => load())
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .w-title {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-width: 0;
 }
 
 .t {
   color: rgba(11, 43, 91, 0.92);
   font-weight: 650;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .s {
   font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .w-op {

@@ -25,6 +25,15 @@ public class AdminUploadController {
 
     @PostMapping(value = "/book-cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<String> uploadBookCover(@RequestParam("file") MultipartFile file) {
+        return uploadImage(file, "book/covers/");
+    }
+
+    @PostMapping(value = "/post-cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<String> uploadPostCover(@RequestParam("file") MultipartFile file) {
+        return uploadImage(file, "portal/covers/");
+    }
+
+    private Result<String> uploadImage(MultipartFile file, String dir) {
         if (file == null || file.isEmpty()) {
             throw new BaseException("请选择图片文件");
         }
@@ -38,7 +47,7 @@ public class AdminUploadController {
 
         String original = file.getOriginalFilename();
         String ext = extFromFilename(original);
-        String objectName = "book/covers/" + UUID.randomUUID().toString().replace("-", "") + ext;
+        String objectName = dir + UUID.randomUUID().toString().replace("-", "") + ext;
         try {
             String url = aliOssUtil.upload(file.getBytes(), objectName);
             return Result.success(url);
@@ -56,4 +65,3 @@ public class AdminUploadController {
         return ext;
     }
 }
-

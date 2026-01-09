@@ -21,8 +21,34 @@ const books = ref<Book[]>([])
 
 const shownCategories = computed(() => ['全部', ...categories.value])
 
+const MAX_RECENT_CATEGORIES = 8
+const recentCategoryStoreKey = computed(() => `lib_home_recent_categories:${auth.user?.userId ?? 'guest'}`)
+
 async function loadCategories() {
   categories.value = await listCategories()
+}
+
+function trackRecentCategory(category: string) {
+  const cat = category.trim()
+  if (!cat) return
+
+  let current: string[] = []
+  try {
+    const raw = localStorage.getItem(recentCategoryStoreKey.value)
+    const parsed = raw ? (JSON.parse(raw) as unknown) : []
+    if (Array.isArray(parsed)) {
+      current = parsed.filter((it): it is string => typeof it === 'string' && it.trim().length > 0)
+    }
+  } catch {
+    current = []
+  }
+
+  const next = [cat, ...current.filter((it) => it !== cat)].slice(0, MAX_RECENT_CATEGORIES)
+  try {
+    localStorage.setItem(recentCategoryStoreKey.value, JSON.stringify(next))
+  } catch {
+    // ignore
+  }
 }
 
 async function loadBooks() {
@@ -51,6 +77,9 @@ function syncRoute() {
 
 function pickCategory(cat: string) {
   activeCategory.value = cat === '全部' ? '' : cat
+  if (activeCategory.value) {
+    trackRecentCategory(activeCategory.value)
+  }
   syncRoute()
 }
 
@@ -111,26 +140,30 @@ watch(
 
       <div class="layout">
         <aside class="side">
-          <div class="panel">
-            <div class="h2">图书分类</div>
-            <div class="cats">
-              <button
-                v-for="cat in shownCategories"
-                :key="cat"
-                class="cat"
-                type="button"
-                :class="{ active: (cat === '全部' && !activeCategory) || cat === activeCategory }"
-                @click="pickCategory(cat)"
-              >
-                {{ cat }}
-              </button>
+          <div class="side-sticky">
+            <div class="panel">
+              <div class="h2">图书分类</div>
+              <div class="cats">
+                <button
+                  v-for="cat in shownCategories"
+                  :key="cat"
+                  class="cat"
+                  type="button"
+                  :class="{ active: (cat === '全部' && !activeCategory) || cat === activeCategory }"
+                  @click="pickCategory(cat)"
+                >
+                  {{ cat }}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div class="panel hint">
-            <div class="h2">说明</div>
-            <div class="muted">
-              数据来自数据库 `book` 表；如接口异常将提示错误信息。你可以通过 `backend/sql/book_seed.sql` 初始化示例馆藏。
+            <div class="panel hint">
+              <div class="h2">说明</div>
+              <div class="muted">
+                书本借阅期为30天
+                拥有一次续借机会
+                请爱护书籍，按时归还。
+              </div>
             </div>
           </div>
         </aside>
@@ -188,6 +221,16 @@ watch(
 
 .panel.hint {
   margin-top: 12px;
+}
+
+.side-sticky {
+  position: sticky;
+  top: 140px;
+  align-self: start;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+  scrollbar-width: thin;
+  padding-right: 4px;
 }
 
 .cats {
@@ -260,6 +303,15 @@ watch(
   }
   .search {
     grid-template-columns: 1fr auto;
+  }
+  .panel.hint {
+    margin-top: 12px;
+  }
+  .side-sticky {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
   .grid {
     grid-template-columns: 1fr;
